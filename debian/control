@@ -1,7 +1,7 @@
 Source: dynmhs
 Section: net
 Priority: optional
-Maintainer: Thomas Dreibholz <thomas.dreibholz@gmail.com>
+Maintainer: Thomas Dreibholz <dreibh@simula.no>
 Homepage: https://www.nntb.no/~dreibh/dynmhs/
 Vcs-Git: https://github.com/simula/dynmhs.git
 Vcs-Browser: https://github.com/simula/dynmhs
