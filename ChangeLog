@@ -1,0 +1,155 @@
+commit 0c384a9d79b22c3eee541db1a935c32ca1cc0122
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 17:01:35 2024 +0100
+
+    Some clean-ups.
+
+commit 7ef9ffec7568938f2d9c6e2813038a95f618964d
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 16:53:40 2024 +0100
+
+    Added Bash completions.
+
+commit 072c888d488f8e9952dc58e51036ac5c9926fee6
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 16:47:06 2024 +0100
+
+    Updated CMakeLists.txt.
+
+commit 078f9be06fcf31f0fa28dbb75abc4b5bba844d0a
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 16:46:54 2024 +0100
+
+    Added service definition.
+
+commit 29cbad9c9df4cca3c798b5fac87e75bedf4f5f46
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 16:40:33 2024 +0100
+
+    Added manpage.
+
+commit 13fdb2c5c9b7da43e48fd84fd57f0ed04313cda7
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 16:33:58 2024 +0100
+
+    Added packaging configuration.
+
+commit d7abd63350da79c868c47aa185a7a10b34dea313
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 16:33:22 2024 +0100
+
+    Added files.
+
+commit 09e0f9ff80586e8a4ba05d10b0d83c2b263428ae
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 16:31:57 2024 +0100
+
+    Added workflows.
+
+commit ca649b4f83f5889986a147c7a5a89b2ef5eaa849
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 16:30:33 2024 +0100
+
+    Added CI scripts.
+
+commit fab943c7e35324b766bb8d0df79221b434efe16d
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 16:29:47 2024 +0100
+
+    Added packaging files.
+
+commit ae9dcd99975af4e304c780ad08fd01cbec8f5f24
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 16:18:48 2024 +0100
+
+    A small fix.
+
+commit 356230f8484b26c1a5cb147c4016bc95d63ed076
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 16:08:45 2024 +0100
+
+    Added rule setup and removal.
+
+commit 4886bd37d275c50243bd4d16cbb08a025c32cde5
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 15:02:44 2024 +0100
+
+    Minor clean-ups.
+
+commit 71785bcdebaab1c6849665da5b09d648bfa9bec3
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 15:00:54 2024 +0100
+
+    Code clean-ups.
+
+commit 2e11eb88d3c1a12b0c550f89d699e0b5aae5ef7a
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 14:50:14 2024 +0100
+
+    Initial route configuration in custom table.
+
+commit d90eb8d736baf2d04d53e0ad86d0182f16684072
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 13:23:21 2024 +0100
+
+    Some clean-ups.
+
+commit 2264009f63935eded27831e4cb5f207fde8a6c75
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 13:18:58 2024 +0100
+
+    Further progress.
+
+commit 6e3ef07aeb7a0451f9d837fdc31eeb075e974c4c
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 13:15:49 2024 +0100
+
+    Added placeholder for manpage.
+
+commit 942f8dc579d8a9b0e14fd1f04f7e604388412808
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 12:51:30 2024 +0100
+
+    Updated build script.
+
+commit 7f83ebcaba50dacb14852dcc6ae21dadb1aff29a
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 12:51:19 2024 +0100
+
+    Further progress.
+
+commit 608cde0a39d18f86c0cf062ccc13124990ff7e6d
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 12:24:52 2024 +0100
+
+    Some progress.
+
+commit fd82b32fc9a7e65c1e16c987db8c6aa7dc392750
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 10:31:08 2024 +0100
+
+    Another update.
+
+commit 1f014a3ca12d8e1efd0b7797592ffcd86ce2af0e
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 09:31:28 2024 +0100
+
+    Some updates.
+
+commit 8fc9e0ec53a140b54e32528ab1a4c90c0756e982
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 09:06:29 2024 +0100
+
+    Added initial build files.
+
+commit e9dd83263c05a99e0d2f74f689e65975ef7f6558
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 08:08:48 2024 +0100
+
+    Some updates.
+
+commit 6dae807d7e5cae11397ba61dda98c3450a35cf84
+Author: NorNet Praesum Presum <nornetpp@dbtest.hipercontracer.nornet>
+Date:   Fri Nov 8 07:38:43 2024 +0100
+
+    Some testing.

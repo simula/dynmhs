@@ -47,7 +47,7 @@
 .Sh DESCRIPTION
 .Nm dynmhs
 dynamically sets up IP routing rules, to allow using multiple
-network connections simultaneously. That is, for each relavant network
+network connections simultaneously. That is, for each relevant network
 interface, a separate routing table is created and maintained. For each
 source address of a network interface managed by DynMHS, routing rules
 are maintained to point to the corresponding routing table. Software
@@ -72,7 +72,7 @@ Sets the minimum logging level to 3 (warning).
 .It Fl v | Fl Fl verbose
 Sets the minimum logging level to 0 (trace).
 .It Fl I Ar interface:table_id | Fl Fl interface Ar interface:table_id
-Sets an interface and the corresponding routing table ID. All routing entries refering to this interface will be cloned from the main routing table. All IP addresses of the interface will get an IP rule pointing to the corresponding routing table.
+Sets an interface and the corresponding routing table ID. All routing entries referring to this interface will be cloned from the main routing table. All IP addresses of the interface will get an IP rule pointing to the corresponding routing table.
 The parameter can be repeated to provide multiple interfaces.
 .El
 .\" ###### Arguments ########################################################

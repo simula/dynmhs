@@ -26,7 +26,7 @@ Suggests: iputils-tracepath,
           traceroute | inetutils-traceroute
 Description: Dynamic Multi-Homing Setup (DynMHS)
  DynMHS dynamically sets up IP routing rules, to allow using multiple
- network connections simultaneously. That is, for each relavant network
+ network connections simultaneously. That is, for each relevant network
  interface, a separate routing table is created and maintained. For each
  source address of a network interface managed by DynMHS, routing rules
  are maintained to point to the corresponding routing table. Software
