@@ -9,6 +9,10 @@ See the manpage of dynmhs for details!
 ## Usage Examples
 
 ```
+dynmhs --version
+sudo dynmhs --interface eno1:1000 --interface eno2:1002 --loglevel 0
+sudo dynmhs -I ethernet:1000 -I telia:2000 -I telenor:3000 --loglevel 2
+sudo dynmhs -I ethernet:1000 -I telia:2000 -I telenor:3000 --logcolor off
 ```
 
 ## Binary Package Installation
