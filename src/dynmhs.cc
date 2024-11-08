@@ -204,7 +204,7 @@ static void handleAddressEvent(const nlmsghdr*      message)
          request->header.nlmsg_pid   = 0;  // This field is opaque to netlink.
          request->header.nlmsg_seq   = SeqNumber++;
          request->frh.family         = ifa->ifa_family;
-         request->frh.action         = FR_ACT_UNSPEC;
+         request->frh.action         = FR_ACT_TO_TBL;
          request->frh.table          = RT_TABLE_UNSPEC;
 
          // ------ "from" parameter: address/prefix -------------------------
