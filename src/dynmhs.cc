@@ -8,35 +8,66 @@
 #include <filesystem>
 #include <iostream>
 #include <boost/asio/ip/address.hpp>
+#include <boost/format.hpp>
 #include <boost/program_options.hpp>
 
 #include "logger.h"
 #include "package-version.h"
 
 
-// Example: https://chromium.googlesource.com/chromium/src/+/master/net/base/address_tracker_linux.cc
+// Example code:
+// * https://chromium.googlesource.com/chromium/src/+/master/net/base/address_tracker_linux.cc
+// * https://gist.github.com/cl4u2/5204374
 
 
 // ###### Handle link change event ##########################################
-static void handleLinkEvent(const ifinfomsg*     ifinfo,
+static void handleLinkEvent(const nlmsghdr*      header,
                             const unsigned short eventType)
 {
-   if( (eventType == RTM_NEWLINK) ||
-       (eventType == RTM_GETLINK) ) {
-      DMHS_LOG(info) << "Link added: ifindex=" << ifinfo->ifi_index;
+   const ifinfomsg* ifinfo = (const ifinfomsg*)NLMSG_DATA(header);
+   int length = header->nlmsg_len - NLMSG_LENGTH(sizeof(*ifinfo));
+
+   // ====== Parse attributes ===============================================
+   const char* ifName = nullptr;
+   for(const rtattr* rta = IFLA_RTA(ifinfo);
+       RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
+      if(rta->rta_type == IFLA_IFNAME) {
+         ifName = (const char*)RTA_DATA(rta);
+      }
    }
-   else if(eventType == RTM_DELLINK) {
-      DMHS_LOG(info) << "Link removed: ifindex=" << ifinfo->ifi_index;
+
+   // ====== Show results ===================================================
+   const char* eventName;
+   switch(eventType) {
+      case RTM_NEWLINK:
+         eventName = "NEW";
+       break;
+      case RTM_GETLINK:
+         eventName = "GET";
+       break;
+      case RTM_DELLINK:
+         eventName = "DELETE";
+       break;
+      default:
+         eventName = "UNKNOWN";
+       break;
    }
+   DMHS_LOG(info) << "Link event:"
+                  << boost::format(" event=%s ifindex=%d ifname=%s")
+                        % eventName
+                        % ifinfo->ifi_index
+                        % (ifName != nullptr) ? ifName : "UNKNOWN?!";
 }
 
 
 // ###### Handle address change event ##########################################
-static void handleAddressEvent(const ifaddrmsg*     ifaddr,
+static void handleAddressEvent(const nlmsghdr*      header,
                                const unsigned short eventType)
 {
-   if( (eventType == RTM_NEWADDR) ||
-       (eventType == RTM_GETADDR) ) {
+   const ifaddrmsg* ifaddr = (const ifaddrmsg*)NLMSG_DATA(header);
+   int length = header->nlmsg_len - NLMSG_LENGTH(sizeof(*ifaddr));
+
+   if( (eventType == RTM_NEWADDR) || (eventType == RTM_GETADDR) ) {
       DMHS_LOG(info) << "Address added: ifindex=" << ifaddr->ifa_index;
    }
    else if(eventType == RTM_DELADDR) {
@@ -46,16 +77,27 @@ static void handleAddressEvent(const ifaddrmsg*     ifaddr,
 
 
 // ###### Handle route change event #########################################
-static void handleRouteEvent(const rtmsg*         rt,
+static void handleRouteEvent(const nlmsghdr*      header,
                              const unsigned short eventType)
 {
-   if( (eventType == RTM_NEWROUTE) ||
-       (eventType == RTM_GETROUTE) ) {
-      DMHS_LOG(info) << "Route added";
+   const rtmsg* rt = (const rtmsg*)NLMSG_DATA(header);
+   int length = header->nlmsg_len - NLMSG_LENGTH(sizeof(*rt));
+
+   if( (eventType == RTM_NEWROUTE) || (eventType == RTM_GETROUTE) ) {
+      DMHS_LOG(info) << "Route added: table=" << rt->rtm_table;
    }
    else if(eventType == RTM_DELROUTE) {
-      DMHS_LOG(info) << "Route removed";
+      DMHS_LOG(info) << "Route removed: table=" << rt->rtm_table;
    }
+
+   // puts("---");
+//
+//    struct rtattr *attribute;
+//
+//    for(const rtattr* rta = (const rtattr*)NLMSG_PAYLOAD(header, sizeof(rtattr));
+//        RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
+//       puts("xx");
+//    }
 }
 
 
@@ -99,10 +141,10 @@ static bool readNetlinkMessage(const int sd)
    struct msghdr      msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
    struct nlmsghdr*   header;
 
-   ssize_t len = recvmsg(sd, &msg, 0);
-   while(len > 0) {
+   int length = recvmsg(sd, &msg, 0);
+   while(length > 0) {
       for(const nlmsghdr* header = (const nlmsghdr*)buffer;
-          NLMSG_OK(header, len); header = NLMSG_NEXT(header, len)) {
+          NLMSG_OK(header, length); header = NLMSG_NEXT(header, length)) {
          switch(header->nlmsg_type) {
             case NLMSG_DONE:
                // The end of multipart message
@@ -119,24 +161,24 @@ static bool readNetlinkMessage(const int sd)
             case RTM_NEWLINK:
             case RTM_DELLINK:
             case RTM_GETLINK:
-               handleLinkEvent((const ifinfomsg*)header, header->nlmsg_type);
+               handleLinkEvent(header, header->nlmsg_type);
              break;
             case RTM_NEWADDR:
             case RTM_DELADDR:
             case RTM_GETADDR:
-               handleAddressEvent((const ifaddrmsg*)header, header->nlmsg_type);
+               handleAddressEvent(header, header->nlmsg_type);
              break;
             case RTM_NEWROUTE:
             case RTM_DELROUTE:
             case RTM_GETROUTE:
-               handleRouteEvent((const rtmsg*)header, header->nlmsg_type);
+               handleRouteEvent(header, header->nlmsg_type);
              break;
             default:
                puts("UNKNOWN!");
              break;
          }
       }
-      len = recvmsg(sd, &msg, 0);
+      length = recvmsg(sd, &msg, 0);
    }
    return false;
 }
@@ -205,9 +247,19 @@ int main(int argc, char** argv)
 
 
    // ====== Open Netlink socket ============================================
-   int fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-   if(fd < 0) {
+   int sd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+   if(sd < 0) {
       perror("socket");
+      return 1;
+   }
+   const int sndbuf = 32768;
+   if(setsockopt(sd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) < 0) {
+      perror("setsockopt(SO_SNDBUF)");
+      return 1;
+   }
+   const int rcvbuf = 1024*1024;
+   if(setsockopt(sd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf)) < 0) {
+      perror("setsockopt(SO_RCVBUF)");
       return 1;
    }
 
@@ -218,41 +270,42 @@ int main(int argc, char** argv)
    sa.nl_groups = RTMGRP_LINK | RTMGRP_NOTIFY |
                   RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR |
                   RTMGRP_IPV4_ROUTE  | RTMGRP_IPV6_ROUTE;
-   if(bind(fd, (struct sockaddr *) &sa, sizeof(sa)) != 0) {
+   if(bind(sd, (struct sockaddr *) &sa, sizeof(sa)) != 0) {
       perror("bind");
       return 1;
    }
 
    // ====== Request initial configuration ==================================
-   if(!sendNetlinkRequest(fd, RTM_GETLINK)) {
+   if(!sendNetlinkRequest(sd, RTM_GETLINK)) {
       perror("sendmsg(RTM_GETLINK)");
       return 1;
    }
-   if(!readNetlinkMessage(fd)) {
+   if(!readNetlinkMessage(sd)) {
       perror("recvmsg()");
       return 1;
    }
 
-   if(!sendNetlinkRequest(fd, RTM_GETADDR)) {
+   if(!sendNetlinkRequest(sd, RTM_GETADDR)) {
       perror("sendmsg(RTM_GETADDR)");
       return 1;
    }
-   if(!readNetlinkMessage(fd)) {
+   if(!readNetlinkMessage(sd)) {
       perror("recvmsg()");
       return 1;
    }
-   if(!sendNetlinkRequest(fd, RTM_GETROUTE)) {
+
+   if(!sendNetlinkRequest(sd, RTM_GETROUTE)) {
       perror("sendmsg(RTM_GETROUTE)");
       return 1;
    }
-   if(!readNetlinkMessage(fd)) {
+   if(!readNetlinkMessage(sd)) {
       perror("recvmsg()");
       return 1;
    }
 
    // ====== Main loop ======================================================
    puts("Main loop ...");
-   while(readNetlinkMessage(fd)) {
+   while(readNetlinkMessage(sd)) {
    }
 
    return 0;
