@@ -42,8 +42,8 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
 #### PROGRAMS                                                            ####
 #############################################################################
 
-ADD_EXECUTABLE(dynmhs
-   dynmhs.cc
+ADD_EXECUTABLE(dynmhs dynmhs.cc
+   assure.cc
    logger.cc
 )
 TARGET_LINK_LIBRARIES(dynmhs ${Boost_LIBRARIES})

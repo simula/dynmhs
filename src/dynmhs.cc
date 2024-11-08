@@ -31,25 +31,40 @@
 #include <filesystem>
 #include <iostream>
 #include <map>
+#include <queue>
 #include <vector>
 #include <boost/asio/ip/address.hpp>
 #include <boost/format.hpp>
 #include <boost/program_options.hpp>
 #include <linux/rtnetlink.h>
 
+#include "assure.h"
 #include "logger.h"
 #include "package-version.h"
 
 
-static std::map<std::string, unsigned int> InterfaceMap;
+static std::map<std::string, unsigned int>            InterfaceMap;
+static std::queue<std::pair<const nlmsghdr*, size_t>> CommandQueue;
+static unsigned int                                   SeqNumber = 0;
+
+
+// ###### Handle error ######################################################
+static void handleError(const nlmsghdr* message)
+{
+   const nlmsgerr* errormsg = (const nlmsgerr*)message;
+   if(errormsg != nullptr) {
+      printf("Netlink error %d for seqnum %u!\n",
+            errormsg->error,
+            errormsg->msg.nlmsg_seq);
+   }
+}
 
 
 // ###### Handle link change event ##########################################
-static void handleLinkEvent(const nlmsghdr*      header,
-                            const unsigned short eventType)
+static void handleLinkEvent(const nlmsghdr* message)
 {
-   const ifinfomsg* ifinfo = (const ifinfomsg*)NLMSG_DATA(header);
-   int length = header->nlmsg_len - NLMSG_LENGTH(sizeof(*ifinfo));
+   const ifinfomsg* ifinfo = (const ifinfomsg*)NLMSG_DATA(message);
+   int length = message->nlmsg_len - NLMSG_LENGTH(sizeof(*ifinfo));
 
    // ====== Parse attributes ===============================================
    const char* ifName = nullptr;
@@ -62,12 +77,9 @@ static void handleLinkEvent(const nlmsghdr*      header,
 
    // ====== Show results ===================================================
    const char* eventName;
-   switch(eventType) {
+   switch(message->nlmsg_type) {
       case RTM_NEWLINK:
          eventName = "NEW";
-       break;
-      case RTM_GETLINK:
-         eventName = "GET";
        break;
       case RTM_DELLINK:
          eventName = "DELETE";
@@ -85,11 +97,11 @@ static void handleLinkEvent(const nlmsghdr*      header,
 
 
 // ###### Handle address change event ##########################################
-static void handleAddressEvent(const nlmsghdr*      header,
+static void handleAddressEvent(const nlmsghdr*      message,
                                const unsigned short eventType)
 {
-   const ifaddrmsg* ifa       = (const ifaddrmsg*)NLMSG_DATA(header);
-   const int        ifalength = header->nlmsg_len;
+   const ifaddrmsg* ifa       = (const ifaddrmsg*)NLMSG_DATA(message);
+   const int        ifalength = message->nlmsg_len;
 
    // ====== Parse attributes ===============================================
    int                      ifIndex = ifa->ifa_index;
@@ -121,9 +133,6 @@ static void handleAddressEvent(const nlmsghdr*      header,
       case RTM_NEWADDR:
          eventName = "NEW";
        break;
-      case RTM_GETADDR:
-         eventName = "GET";
-       break;
       case RTM_DELADDR:
          eventName = "DELETE";
        break;
@@ -141,11 +150,12 @@ static void handleAddressEvent(const nlmsghdr*      header,
 
 
 // ###### Handle route change event #########################################
-static void handleRouteEvent(const nlmsghdr*      header,
+static void handleRouteEvent(const nlmsghdr*      message,
                              const unsigned short eventType)
 {
-   const rtmsg* rtm       = (const rtmsg*)NLMSG_DATA(header);
-   const int    rtmlength = header->nlmsg_len;
+   const int    messageLength = message->nlmsg_len;
+   const rtmsg* rtm           = (const rtmsg*)NLMSG_DATA(message);
+   const int    rtmLength     = message->nlmsg_len;
 
    // ====== Parse attributes ===============================================
    boost::asio::ip::address destination =
@@ -155,12 +165,12 @@ static void handleRouteEvent(const nlmsghdr*      header,
    const unsigned int       destinationPrefixLength = rtm->rtm_dst_len;
    boost::asio::ip::address gateway;
    bool                     hasGateway = false;
-   int                      table    = rtm->rtm_table;
-   int                      metric   = -1;
-   int                      oifIndex = -1;
+   int*                     tablePtr   = nullptr;
+   int                      metric     = -1;
+   int                      oifIndex   = -1;
    char                     oifNameBuffer[IF_NAMESIZE];
    const char*              oifName;
-   int                      length = rtmlength - NLMSG_LENGTH(sizeof(*rtm));
+   int                      length = rtmLength - NLMSG_LENGTH(sizeof(*rtm));
    for(const rtattr* rta = RTM_RTA(rtm); RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
       switch(rta->rta_type) {
          case RTA_DST:
@@ -180,7 +190,7 @@ static void handleRouteEvent(const nlmsghdr*      header,
             }
           break;
          case RTA_TABLE:
-            table = *(int*)RTA_DATA(rta);
+            tablePtr = (int*)RTA_DATA(rta);
           break;
          case RTA_METRICS:
             metric = *(int*)RTA_DATA(rta);
@@ -196,17 +206,15 @@ static void handleRouteEvent(const nlmsghdr*      header,
           break;
       }
    }
+   assure(tablePtr != nullptr);
 
    // ====== Only the "main" table is of interest here ======================
-   if(table == RT_TABLE_MAIN) {
+   if(*tablePtr == RT_TABLE_MAIN) {
       // ====== Show results ================================================
       const char* eventName;
       switch(eventType) {
          case RTM_NEWROUTE:
             eventName = "NEW";
-         break;
-         case RTM_GETROUTE:
-            eventName = "GET";
          break;
          case RTM_DELROUTE:
             eventName = "DELETE";
@@ -230,15 +238,33 @@ static void handleRouteEvent(const nlmsghdr*      header,
       DMHS_LOG(debug) << "Route event:"
                       << boost::format(" event=%s: T=%d D=%s scope=%s %s IF=%s (%d) %s")
                             % eventName
-                            % table
+                            % *tablePtr
                             % (destination.to_string() + "/" + std::to_string(destinationPrefixLength))
                             % scopeName
                             % ((hasGateway == true) ? ("G=" + gateway.to_string()) : "G=---")
                             % oifName
                             % oifIndex
                             % ((metric >= 0) ? std::to_string(metric) : "");
-      if(InterfaceMap.find(oifName) != InterfaceMap.end()) {
-         DMHS_LOG(info) << "Update necessary ...";
+
+      // ====== Check whether an update in the custom table is necessary ====
+      const auto found = InterfaceMap.find(oifName);
+      if(found != InterfaceMap.end()) {
+         const unsigned int customTable = found->second;
+         DMHS_LOG(info) << "Update of table " << customTable << " is necessary ...";
+
+         // ------ Update ---------------------------------------------------
+         *tablePtr = customTable;
+
+         // ------ Copy the message and enqueue it for sending it later -----
+         nlmsghdr* updateMessage = (nlmsghdr*)new char[messageLength];
+         assure(updateMessage != nullptr);
+         memcpy(updateMessage, message, messageLength);
+
+         updateMessage->nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK;
+         updateMessage->nlmsg_seq   = SeqNumber++;
+
+         CommandQueue.push(std::pair<const nlmsghdr*, size_t>(
+            updateMessage, messageLength));
       }
    }
 }
@@ -247,18 +273,15 @@ static void handleRouteEvent(const nlmsghdr*      header,
 // ###### Send Netlink request ##############################################
 static bool sendNetlinkRequest(const int sd, const int type)
 {
-   static unsigned int seqNumber = 0;
-
    struct {
      struct nlmsghdr header;
      struct rtgenmsg msg;
    } request = {};
    request.header.nlmsg_len   = NLMSG_LENGTH(sizeof(request.msg));
    request.header.nlmsg_type  = type;
-   request.header.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+   request.header.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK;
    request.header.nlmsg_pid   = 0;  // This field is opaque to netlink.
-   request.header.nlmsg_seq   = seqNumber++;
-   request.header.nlmsg_flags |= NLM_F_ACK;
+   request.header.nlmsg_seq   = SeqNumber++;
    request.msg.rtgen_family   = AF_UNSPEC;
 
    struct sockaddr_nl sa;
@@ -277,8 +300,7 @@ static bool sendNetlinkRequest(const int sd, const int type)
 // ###### Read Netlink message ##############################################
 static bool readNetlinkMessage(const int sd)
 {
-   // 8192 to avoid message truncation on platforms with page size > 4096
-   struct nlmsghdr buffer[8192 / sizeof(struct nlmsghdr)];
+   struct nlmsghdr    buffer[65536 / sizeof(struct nlmsghdr)];
    struct iovec       iov = { buffer, sizeof(buffer) };
    struct sockaddr_nl sa;
    struct msghdr      msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
@@ -293,31 +315,23 @@ static bool readNetlinkMessage(const int sd)
                // The end of multipart message
                return true;
              break;
-            case NLMSG_ERROR: {
-                  const nlmsgerr* errormsg = (const nlmsgerr*)header;
-                  if(errormsg == nullptr) {
-                     break;
-                  }
-                  printf("Unexpected netlink error %d!\n", errormsg->error);
-               }
+            case NLMSG_ERROR:
+               handleError(header);
              break;
             case RTM_NEWLINK:
             case RTM_DELLINK:
-            case RTM_GETLINK:
-               handleLinkEvent(header, header->nlmsg_type);
+               handleLinkEvent(header);
              break;
             case RTM_NEWADDR:
             case RTM_DELADDR:
-            case RTM_GETADDR:
                handleAddressEvent(header, header->nlmsg_type);
              break;
             case RTM_NEWROUTE:
             case RTM_DELROUTE:
-            case RTM_GETROUTE:
                handleRouteEvent(header, header->nlmsg_type);
              break;
             default:
-               puts("UNKNOWN!");
+               puts("UNEXPECTED!");
              break;
          }
       }
@@ -391,8 +405,7 @@ int main(int argc, char** argv)
    if(vm.count("interface")) {
       const std::vector<std::string>& interfaceVector =
          vm["interface"].as<std::vector<std::string>>();
-      for(std::vector<std::string>::const_iterator iterator = interfaceVector.begin();
-          iterator != interfaceVector.end(); iterator++) {
+      for(auto iterator = interfaceVector.begin(); iterator != interfaceVector.end(); iterator++) {
          const std::string& interfaceConfiguration = *iterator;
          const int delimiter = interfaceConfiguration.find(':');
          if(delimiter == -1) {
@@ -400,10 +413,12 @@ int main(int argc, char** argv)
             return 1;
          }
          const std::string interface = interfaceConfiguration.substr(0, delimiter);
-         const std::string table = interfaceConfiguration.substr(delimiter + 1, interfaceConfiguration.size());
+         const std::string table     = interfaceConfiguration.substr(delimiter + 1,
+                                                                     interfaceConfiguration.size());
          unsigned int tableID = atol(table.c_str());
-         if( (tableID < 100) || (tableID >= 30000) ) {
-            std::cerr << "ERROR: Bad table ID in interface configuration " << interfaceConfiguration << "!\n";
+         if( (tableID < 1000) || (tableID >= 30000) ) {
+            std::cerr << "ERROR: Bad table ID in interface configuration "
+                      << interfaceConfiguration << "!\n";
             return 1;
          }
          InterfaceMap.insert(std::pair<std::string, unsigned int>(interface, tableID));
@@ -474,8 +489,24 @@ int main(int argc, char** argv)
 
    // ====== Main loop ======================================================
    puts("Main loop ...");
-   while(readNetlinkMessage(sd)) {
-   }
+   do {
+      while(!CommandQueue.empty()) {
+         std::pair<const nlmsghdr*, size_t>& command = CommandQueue.front();
+
+         const nlmsghdr* message       = command.first;
+         const size_t    messageLength = command.second;
+         sockaddr_nl sa;
+         memset(&sa, 0, sizeof(sa));
+         sa.nl_family = AF_NETLINK;
+         const iovec  iov { (void*)message, messageLength };
+         const msghdr msg { &sa, sizeof(sa), (iovec*)&iov, 1, nullptr, 0, 0 };
+         if(sendmsg(sd, &msg, 0) < 0) {
+            perror("sendmsg()");
+         }
+         delete [] message;
+         CommandQueue.pop();
+      }
+   } while(readNetlinkMessage(sd));
 
    return 0;
 }
