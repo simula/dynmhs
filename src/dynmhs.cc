@@ -7,6 +7,7 @@
 
 #include <filesystem>
 #include <iostream>
+#include <set>
 #include <boost/asio/ip/address.hpp>
 #include <boost/format.hpp>
 #include <boost/program_options.hpp>
@@ -14,6 +15,8 @@
 #include "logger.h"
 #include "package-version.h"
 
+
+static std::set<std::string> InterfaceSet;
 
 // Example code:
 // * https://chromium.googlesource.com/chromium/src/+/master/net/base/address_tracker_linux.cc
@@ -52,11 +55,11 @@ static void handleLinkEvent(const nlmsghdr*      header,
          eventName = "UNKNOWN";
        break;
    }
-   DMHS_LOG(info) << "Link event:"
-                  << boost::format(" event=%s ifindex=%d ifname=%s")
-                        % eventName
-                        % ifinfo->ifi_index
-                        % (ifName != nullptr) ? ifName : "UNKNOWN?!";
+   DMHS_LOG(debug) << "Link event:"
+                   << boost::format(" event=%s ifindex=%d ifname=%s")
+                         % eventName
+                         % ifinfo->ifi_index
+                         % (ifName != nullptr) ? ifName : "UNKNOWN?!";
 }
 
 
@@ -92,11 +95,11 @@ static void handleAddressEvent(const nlmsghdr*      header,
          eventName = "UNKNOWN";
        break;
    }
-   DMHS_LOG(info) << "Address event:"
-                  << boost::format(" event=%s")
-                        % eventName;
-                        // % ifinfo->ifi_index
-                        // % (ifName != nullptr) ? ifName : "UNKNOWN?!";
+   DMHS_LOG(debug) << "Address event:"
+                   << boost::format(" event=%s")
+                         % eventName;
+                         // % ifinfo->ifi_index
+                         // % (ifName != nullptr) ? ifName : "UNKNOWN?!";
 }
 
 
@@ -115,9 +118,9 @@ static void handleRouteEvent(const nlmsghdr*      header,
    const unsigned int       destinationPrefixLength = rtm->rtm_dst_len;
    boost::asio::ip::address gateway;
    bool                     hasGateway = false;
-   int                      table  = rtm->rtm_table;
-   int                      metric = -1;
-   int                      oif    = -1;
+   int                      table    = rtm->rtm_table;
+   int                      metric   = -1;
+   int                      oifIndex = -1;
    char                     oifNameBuffer[IF_NAMESIZE];
    const char*              oifName;
    int                      length = rtmlength - NLMSG_LENGTH(sizeof(*rtm));
@@ -146,9 +149,9 @@ static void handleRouteEvent(const nlmsghdr*      header,
             metric = *(int*)RTA_DATA(rta);
           break;
          case RTA_OIF:
-            oif = *(int*)RTA_DATA(rta);
-            if(oif >= 0) {
-               oifName = if_indextoname(oif, (char*)&oifNameBuffer);
+            oifIndex = *(int*)RTA_DATA(rta);
+            if(oifIndex >= 0) {
+               oifName = if_indextoname(oifIndex, (char*)&oifNameBuffer);
                if(oifName == nullptr) {
                   oifName = "UNKNOWN";
                }
@@ -187,15 +190,19 @@ static void handleRouteEvent(const nlmsghdr*      header,
             scopeName = "UNKNOWN";
          break;
       }
-      DMHS_LOG(info) << "Route event:"
-                     << boost::format(" event=%s: T=%d D=%s scope=%s %s IF=%s M=%s")
-                           % eventName
-                           % table
-                           % (destination.to_string() + "/" + std::to_string(destinationPrefixLength))
-                           % scopeName
-                           % ((hasGateway == true) ? ("G=" + gateway.to_string()) : "G=---")
-                           % oifName
-                           % metric;
+      DMHS_LOG(debug) << "Route event:"
+                      << boost::format(" event=%s: T=%d D=%s scope=%s %s IF=%s (%d) %s")
+                            % eventName
+                            % table
+                            % (destination.to_string() + "/" + std::to_string(destinationPrefixLength))
+                            % scopeName
+                            % ((hasGateway == true) ? ("G=" + gateway.to_string()) : "G=---")
+                            % oifName
+                            % oifIndex
+                            % ((metric >= 0) ? std::to_string(metric) : "");
+      if(InterfaceSet.find(oifName) != InterfaceSet.end()) {
+         DMHS_LOG(info) << "Update necessary ...";
+      }
    }
 }
 
@@ -286,9 +293,9 @@ static bool readNetlinkMessage(const int sd)
 int main(int argc, char** argv)
 {
    // ====== Initialise =====================================================
-   unsigned int          logLevel;
-   bool                  logColor;
-   std::filesystem::path logFile;
+   unsigned int             logLevel;
+   bool                     logColor;
+   std::filesystem::path    logFile;
 
    boost::program_options::options_description commandLineOptions;
    commandLineOptions.add_options()
@@ -311,7 +318,11 @@ int main(int argc, char** argv)
            "Verbose logging level" )
       ( "quiet,q",
            boost::program_options::value<unsigned int>(&logLevel)->implicit_value(boost::log::trivial::severity_level::warning),
-           "Quiet logging level" );
+           "Quiet logging level" )
+
+      ( "interface,I",
+           boost::program_options::value<std::vector<std::string>>(),
+           "Interface" );
 
    // ====== Handle command-line arguments ==================================
    boost::program_options::variables_map vm;
@@ -335,9 +346,17 @@ int main(int argc, char** argv)
                  << commandLineOptions;
        return 1;
    }
-   else if(vm.count("verion")) {
+   else if(vm.count("version")) {
       std::cout << "Dynamic Multi-Homing Setup (DynMHS), Version " << DYNMHS_VERSION << "\n";
       return 0;
+   }
+   if(vm.count("interface")) {
+      const std::vector<std::string>& interfaceVector =
+         vm["interface"].as<std::vector<std::string>>();
+      for(std::vector<std::string>::const_iterator iterator = interfaceVector.begin();
+          iterator != interfaceVector.end(); iterator++) {
+         InterfaceSet.insert(*iterator);
+      }
    }
 
    // ====== Initialize =====================================================
