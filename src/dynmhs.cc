@@ -16,11 +16,7 @@
 #include "package-version.h"
 
 
-static std::set<std::string> InterfaceSet;
-
-// Example code:
-// * https://chromium.googlesource.com/chromium/src/+/master/net/base/address_tracker_linux.cc
-// * https://gist.github.com/cl4u2/5204374
+static std::map<std::string, unsigned int> InterfaceMap;
 
 
 // ###### Handle link change event ##########################################
@@ -67,17 +63,32 @@ static void handleLinkEvent(const nlmsghdr*      header,
 static void handleAddressEvent(const nlmsghdr*      header,
                                const unsigned short eventType)
 {
-   const ifaddrmsg* ifaddr = (const ifaddrmsg*)NLMSG_DATA(header);
-   int length = header->nlmsg_len - NLMSG_LENGTH(sizeof(*ifaddr));
+   const ifaddrmsg* ifa       = (const ifaddrmsg*)NLMSG_DATA(header);
+   const int        ifalength = header->nlmsg_len;
 
-   // // ====== Parse attributes ===============================================
-   const char* ifName = nullptr;
-   // for(const rtattr* rta = RTM_RTA(ifinfo);
-   //     RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
-   //    if(rta->rta_type == IFLA_IFNAME) {
-   //       ifName = (const char*)RTA_DATA(rta);
-   //    }
-   // }
+   // ====== Parse attributes ===============================================
+   int                      ifIndex = ifa->ifa_index;
+   char                     ifNameBuffer[IF_NAMESIZE];
+   const char*              ifName;
+   boost::asio::ip::address address;
+   const unsigned int       prefixLength = ifa->ifa_prefixlen;
+   int                      length = ifalength - NLMSG_LENGTH(sizeof(*ifa));
+   for(const rtattr* rta = IFA_RTA(ifa); RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
+      switch(rta->rta_type) {
+         case IFA_ADDRESS:
+            if(ifa->ifa_family == AF_INET) {
+               address = boost::asio::ip::make_address_v4(*((boost::asio::ip::address_v4::bytes_type*)RTA_DATA(rta)));
+            }
+            else if(ifa->ifa_family == AF_INET6) {
+               address = boost::asio::ip::make_address_v6(*((boost::asio::ip::address_v6::bytes_type*)RTA_DATA(rta)));
+            }
+          break;
+      }
+   }
+   ifName = if_indextoname(ifIndex, (char*)&ifNameBuffer);
+   if(ifName == nullptr) {
+      ifName = "UNKNOWN";
+   }
 
    // ====== Show results ===================================================
    const char* eventName;
@@ -96,10 +107,11 @@ static void handleAddressEvent(const nlmsghdr*      header,
        break;
    }
    DMHS_LOG(debug) << "Address event:"
-                   << boost::format(" event=%s")
-                         % eventName;
-                         // % ifinfo->ifi_index
-                         // % (ifName != nullptr) ? ifName : "UNKNOWN?!";
+                   << boost::format(" event=%s IF=%s (%d) address=%s")
+                         % eventName
+                         % ifName
+                         % ifIndex
+                         % address.to_string();
 }
 
 
@@ -200,7 +212,7 @@ static void handleRouteEvent(const nlmsghdr*      header,
                             % oifName
                             % oifIndex
                             % ((metric >= 0) ? std::to_string(metric) : "");
-      if(InterfaceSet.find(oifName) != InterfaceSet.end()) {
+      if(InterfaceMap.find(oifName) != InterfaceMap.end()) {
          DMHS_LOG(info) << "Update necessary ...";
       }
    }
@@ -324,6 +336,7 @@ int main(int argc, char** argv)
            boost::program_options::value<std::vector<std::string>>(),
            "Interface" );
 
+
    // ====== Handle command-line arguments ==================================
    boost::program_options::variables_map vm;
    try {
@@ -355,11 +368,24 @@ int main(int argc, char** argv)
          vm["interface"].as<std::vector<std::string>>();
       for(std::vector<std::string>::const_iterator iterator = interfaceVector.begin();
           iterator != interfaceVector.end(); iterator++) {
-         InterfaceSet.insert(*iterator);
+         const std::string& interfaceConfiguration = *iterator;
+         const int delimiter = interfaceConfiguration.find(':');
+         if(delimiter == -1) {
+            std::cerr << "ERROR: Bad interface configuration " << interfaceConfiguration << "!\n";
+            return 1;
+         }
+         const std::string interface = interfaceConfiguration.substr(0, delimiter);
+         const std::string table = interfaceConfiguration.substr(delimiter + 1, interfaceConfiguration.size());
+         unsigned int tableID = atol(table.c_str());
+         if( (tableID < 100) || (tableID >= 30000) ) {
+            std::cerr << "ERROR: Bad table ID in interface configuration " << interfaceConfiguration << "!\n";
+            return 1;
+         }
+         InterfaceMap.insert(std::pair<std::string, unsigned int>(interface, tableID));
       }
    }
 
-   // ====== Initialize =====================================================
+   // ====== Initialize logger ==============================================
    initialiseLogger(logLevel, logColor,
                     (logFile != std::filesystem::path()) ? logFile.string().c_str() : nullptr);
 
