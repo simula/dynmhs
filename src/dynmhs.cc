@@ -116,7 +116,7 @@ static void handleLinkEvent(const nlmsghdr* message)
                    << boost::format(" event=%s ifindex=%d ifname=%s")
                          % eventName
                          % ifinfo->ifi_index
-                         % (ifName != nullptr) ? ifName : "UNKNOWN?!";
+                         % ((ifName != nullptr) ? ifName : "UNKNOWN?!");
 }
 
 
@@ -179,7 +179,8 @@ static void handleAddressEvent(const nlmsghdr*      message)
                          % ifIndex
                          % address.to_string();
 
-   if( (!isLinkLocal) &&
+   if( (addressPtr != nullptr) &&
+       (!isLinkLocal) &&
        ( (message->nlmsg_type == RTM_NEWADDR) ||
          (message->nlmsg_type == RTM_DELADDR) ) ) {
 
@@ -356,7 +357,7 @@ static bool sendNetlinkRequest(const int sd, const int type)
    struct {
      struct nlmsghdr header;
      struct rtgenmsg msg;
-   } request = { };
+   } request { };
    request.header.nlmsg_len   = NLMSG_LENGTH(sizeof(request.msg));
    request.header.nlmsg_type  = type;
    request.header.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK;
@@ -368,8 +369,8 @@ static bool sendNetlinkRequest(const int sd, const int type)
    memset(&sa, 0, sizeof(sa));
    sa.nl_family = AF_NETLINK;
 
-   struct iovec  iov = { &request, request.header.nlmsg_len };
-   struct msghdr msg = { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
+   struct iovec  iov { &request, request.header.nlmsg_len };
+   struct msghdr msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
    if(sendmsg(sd, &msg, 0) < 0) {
       return false;
    }
@@ -380,11 +381,10 @@ static bool sendNetlinkRequest(const int sd, const int type)
 // ###### Read Netlink message ##############################################
 static bool readNetlinkMessage(const int sd)
 {
-   struct nlmsghdr    buffer[65536 / sizeof(struct nlmsghdr)];
-   struct iovec       iov = { buffer, sizeof(buffer) };
-   struct sockaddr_nl sa;
-   struct msghdr      msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
-   struct nlmsghdr*   header;
+   nlmsghdr    buffer[65536 / sizeof(struct nlmsghdr)];
+   iovec       iov { buffer, sizeof(buffer) };
+   sockaddr_nl sa;
+   msghdr      msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
 
    int length = recvmsg(sd, &msg, 0);
    while(length > 0) {
