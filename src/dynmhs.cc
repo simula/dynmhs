@@ -67,12 +67,36 @@ static void handleAddressEvent(const nlmsghdr*      header,
    const ifaddrmsg* ifaddr = (const ifaddrmsg*)NLMSG_DATA(header);
    int length = header->nlmsg_len - NLMSG_LENGTH(sizeof(*ifaddr));
 
-   if( (eventType == RTM_NEWADDR) || (eventType == RTM_GETADDR) ) {
-      DMHS_LOG(info) << "Address added: ifindex=" << ifaddr->ifa_index;
+   // // ====== Parse attributes ===============================================
+   const char* ifName = nullptr;
+   // for(const rtattr* rta = RTM_RTA(ifinfo);
+   //     RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
+   //    if(rta->rta_type == IFLA_IFNAME) {
+   //       ifName = (const char*)RTA_DATA(rta);
+   //    }
+   // }
+
+   // ====== Show results ===================================================
+   const char* eventName;
+   switch(eventType) {
+      case RTM_NEWADDR:
+         eventName = "NEW";
+       break;
+      case RTM_GETADDR:
+         eventName = "GET";
+       break;
+      case RTM_DELADDR:
+         eventName = "DELETE";
+       break;
+      default:
+         eventName = "UNKNOWN";
+       break;
    }
-   else if(eventType == RTM_DELADDR) {
-      DMHS_LOG(info) << "Address removed: ifindex=" << ifaddr->ifa_index;
-   }
+   DMHS_LOG(info) << "Address event:"
+                  << boost::format(" event=%s")
+                        % eventName;
+                        // % ifinfo->ifi_index
+                        // % (ifName != nullptr) ? ifName : "UNKNOWN?!";
 }
 
 
@@ -80,24 +104,99 @@ static void handleAddressEvent(const nlmsghdr*      header,
 static void handleRouteEvent(const nlmsghdr*      header,
                              const unsigned short eventType)
 {
-   const rtmsg* rt = (const rtmsg*)NLMSG_DATA(header);
-   int length = header->nlmsg_len - NLMSG_LENGTH(sizeof(*rt));
+   const rtmsg* rtm       = (const rtmsg*)NLMSG_DATA(header);
+   const int    rtmlength = header->nlmsg_len;
 
-   if( (eventType == RTM_NEWROUTE) || (eventType == RTM_GETROUTE) ) {
-      DMHS_LOG(info) << "Route added: table=" << rt->rtm_table;
-   }
-   else if(eventType == RTM_DELROUTE) {
-      DMHS_LOG(info) << "Route removed: table=" << rt->rtm_table;
+   // ====== Parse attributes ===============================================
+   boost::asio::ip::address destination =
+      (rtm->rtm_family == AF_INET) ?
+         boost::asio::ip::address(boost::asio::ip::address_v4()) :
+         boost::asio::ip::address(boost::asio::ip::address_v6());
+   const unsigned int       destinationPrefixLength = rtm->rtm_dst_len;
+   boost::asio::ip::address gateway;
+   bool                     hasGateway = false;
+   int                      table  = rtm->rtm_table;
+   int                      metric = -1;
+   int                      oif    = -1;
+   char                     oifNameBuffer[IF_NAMESIZE];
+   const char*              oifName;
+   int                      length = rtmlength - NLMSG_LENGTH(sizeof(*rtm));
+   for(const rtattr* rta = RTM_RTA(rtm); RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
+      switch(rta->rta_type) {
+         case RTA_DST:
+            if(rtm->rtm_family == AF_INET) {
+               destination = boost::asio::ip::make_address_v4(*((boost::asio::ip::address_v4::bytes_type*)RTA_DATA(rta)));
+            }
+            else if(rtm->rtm_family == AF_INET6) {
+               destination = boost::asio::ip::make_address_v6(*((boost::asio::ip::address_v6::bytes_type*)RTA_DATA(rta)));
+            }
+          break;
+         case RTA_GATEWAY:
+            if(rtm->rtm_family == AF_INET) {
+               gateway = boost::asio::ip::make_address_v4(*((boost::asio::ip::address_v4::bytes_type*)RTA_DATA(rta)));
+            }
+            else if(rtm->rtm_family == AF_INET6) {
+               gateway = boost::asio::ip::make_address_v6(*((boost::asio::ip::address_v6::bytes_type*)RTA_DATA(rta)));
+            }
+          break;
+         case RTA_TABLE:
+            table = *(int*)RTA_DATA(rta);
+          break;
+         case RTA_METRICS:
+            metric = *(int*)RTA_DATA(rta);
+          break;
+         case RTA_OIF:
+            oif = *(int*)RTA_DATA(rta);
+            if(oif >= 0) {
+               oifName = if_indextoname(oif, (char*)&oifNameBuffer);
+               if(oifName == nullptr) {
+                  oifName = "UNKNOWN";
+               }
+            }
+          break;
+      }
    }
 
-   // puts("---");
-//
-//    struct rtattr *attribute;
-//
-//    for(const rtattr* rta = (const rtattr*)NLMSG_PAYLOAD(header, sizeof(rtattr));
-//        RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
-//       puts("xx");
-//    }
+   // ====== Only the "main" table is of interest here ======================
+   if(table == RT_TABLE_MAIN) {
+      // ====== Show results ================================================
+      const char* eventName;
+      switch(eventType) {
+         case RTM_NEWROUTE:
+            eventName = "NEW";
+         break;
+         case RTM_GETROUTE:
+            eventName = "GET";
+         break;
+         case RTM_DELROUTE:
+            eventName = "DELETE";
+         break;
+         default:
+            eventName = "UNKNOWN";
+         break;
+      }
+      const char* scopeName;
+      switch(rtm->rtm_scope) {
+         case RT_SCOPE_UNIVERSE:
+            scopeName = "universe";
+          break;
+         case RT_SCOPE_LINK:
+            scopeName = "link";
+          break;
+         default:
+            scopeName = "UNKNOWN";
+         break;
+      }
+      DMHS_LOG(info) << "Route event:"
+                     << boost::format(" event=%s: T=%d D=%s scope=%s %s IF=%s M=%s")
+                           % eventName
+                           % table
+                           % (destination.to_string() + "/" + std::to_string(destinationPrefixLength))
+                           % scopeName
+                           % ((hasGateway == true) ? ("G=" + gateway.to_string()) : "G=---")
+                           % oifName
+                           % metric;
+   }
 }
 
 
