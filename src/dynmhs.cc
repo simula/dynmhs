@@ -37,6 +37,7 @@
 #include <boost/format.hpp>
 #include <boost/program_options.hpp>
 #include <linux/rtnetlink.h>
+#include <linux/fib_rules.h>
 
 #include "assure.h"
 #include "logger.h"
@@ -46,6 +47,27 @@
 static std::map<std::string, unsigned int>            InterfaceMap;
 static std::queue<std::pair<const nlmsghdr*, size_t>> CommandQueue;
 static unsigned int                                   SeqNumber = 0;
+
+
+// ###### Arribute helper ###################################################
+#define NLMSG_TAIL(message) \
+           ((rtattr*)(((long)(message)) + (long)NLMSG_ALIGN((message)->nlmsg_len)))
+static int addattr(nlmsghdr* message, const int maxlen,
+                   const int type, const void* data, const int alen)
+{
+   int     len = RTA_LENGTH(alen);
+   rtattr* rta;
+
+   assure(NLMSG_ALIGN(message->nlmsg_len) + RTA_ALIGN(len) <= maxlen);
+   rta = NLMSG_TAIL(message);
+   rta->rta_type = type;
+   rta->rta_len = len;
+   if(alen) {
+      memcpy(RTA_DATA(rta), data, alen);
+   }
+   message->nlmsg_len = NLMSG_ALIGN(message->nlmsg_len) + RTA_ALIGN(len);
+   return 0;
+}
 
 
 // ###### Handle error ######################################################
@@ -108,16 +130,25 @@ static void handleAddressEvent(const nlmsghdr*      message)
    char                     ifNameBuffer[IF_NAMESIZE];
    const char*              ifName;
    boost::asio::ip::address address;
+   const char*              addressPtr;
+   bool                     isLinkLocal = false;
    const unsigned int       prefixLength = ifa->ifa_prefixlen;
    int                      length = ifalength - NLMSG_LENGTH(sizeof(*ifa));
    for(const rtattr* rta = IFA_RTA(ifa); RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
       switch(rta->rta_type) {
          case IFA_ADDRESS:
             if(ifa->ifa_family == AF_INET) {
-               address = boost::asio::ip::make_address_v4(*((boost::asio::ip::address_v4::bytes_type*)RTA_DATA(rta)));
+               address    = boost::asio::ip::make_address_v4(*((boost::asio::ip::address_v4::bytes_type*)RTA_DATA(rta)));
+               addressPtr = (const char*)RTA_DATA(rta);
             }
             else if(ifa->ifa_family == AF_INET6) {
-               address = boost::asio::ip::make_address_v6(*((boost::asio::ip::address_v6::bytes_type*)RTA_DATA(rta)));
+               const boost::asio::ip::address_v6 a =
+                  boost::asio::ip::make_address_v6(*((boost::asio::ip::address_v6::bytes_type*)RTA_DATA(rta)));
+               if(a.is_link_local()) {
+                  isLinkLocal = true;
+               }
+               address    = a;
+               addressPtr = (const char*)RTA_DATA(rta);
             }
           break;
       }
@@ -147,13 +178,52 @@ static void handleAddressEvent(const nlmsghdr*      message)
                          % ifIndex
                          % address.to_string();
 
-   // ====== Check whether an update in the custom table is necessary =======
-   const auto found = InterfaceMap.find(ifName);
-   if(found != InterfaceMap.end()) {
-      const unsigned int customTable = found->second;
-      DMHS_LOG(info) << "Update of rules for table " << customTable << " is necessary ...";
+   if( (!isLinkLocal) &&
+       ( (message->nlmsg_type == RTM_NEWADDR) ||
+         (message->nlmsg_type == RTM_DELADDR) ) ) {
 
+      // ====== Check whether an update in the custom table is necessary =======
+      const auto found = InterfaceMap.find(ifName);
+      if(found != InterfaceMap.end()) {
+         const uint32_t customTable = found->second;
+         DMHS_LOG(info) << "Update of rules for table " << customTable << " is necessary ...";
 
+         // ------ Build RTM_NEWRULE/RTM_DELRULE request --------------------
+         struct _request {
+            nlmsghdr     header;
+            fib_rule_hdr frh;
+            char         buffer[1024];
+         };
+         _request* request = (_request*)new char[sizeof(_request)];
+         assure(request != nullptr);
+
+         request->header.nlmsg_len   = NLMSG_LENGTH(sizeof(request->frh));
+         request->header.nlmsg_type  = (message->nlmsg_type == RTM_NEWADDR) ?
+                                          RTM_NEWRULE : RTM_DELRULE;
+         request->header.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK;
+         request->header.nlmsg_pid   = 0;  // This field is opaque to netlink.
+         request->header.nlmsg_seq   = SeqNumber++;
+         request->frh.family         = ifa->ifa_family;
+         request->frh.action         = FR_ACT_UNSPEC;
+         request->frh.table          = RT_TABLE_UNSPEC;
+
+         // ------ "from" parameter: address/prefix -------------------------
+         assure( addattr(&request->header, sizeof(*request), FRA_SRC,
+                         addressPtr, (ifa->ifa_family == AF_INET) ? 4 : 16) == 0 );
+         request->frh.src_len = prefixLength;
+
+         // ------ "priority" parameter -------------------------------------
+         assure( addattr(&request->header, sizeof(*request), FRA_PRIORITY,
+                         &customTable, sizeof(uint32_t)) == 0 );
+
+         // ------ "lookup" parameter ---------------------------------------
+         assure( addattr(&request->header, sizeof(*request), FRA_TABLE,
+                         &customTable, sizeof(uint32_t)) == 0 );
+
+         // ------ Enqueue message for sending it later ---------------------
+         CommandQueue.push(std::pair<const nlmsghdr*, size_t>(
+            &request->header, request->header.nlmsg_len));
+      }
    }
 }
 
@@ -269,7 +339,7 @@ static void handleRouteEvent(const nlmsghdr*      message)
          assure(updateMessage != nullptr);
          memcpy(updateMessage, message, messageLength);
 
-         updateMessage->nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK;
+         updateMessage->nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL | NLM_F_ACK;
          updateMessage->nlmsg_seq   = SeqNumber++;
 
          CommandQueue.push(std::pair<const nlmsghdr*, size_t>(
@@ -285,7 +355,7 @@ static bool sendNetlinkRequest(const int sd, const int type)
    struct {
      struct nlmsghdr header;
      struct rtgenmsg msg;
-   } request = {};
+   } request = { };
    request.header.nlmsg_len   = NLMSG_LENGTH(sizeof(request.msg));
    request.header.nlmsg_type  = type;
    request.header.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK;
