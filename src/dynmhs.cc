@@ -247,7 +247,8 @@ static void handleRouteEvent(const nlmsghdr*      message)
                       << boost::format(" event=%s: T=%d D=%s scope=%s %s IF=%s (%d) %s")
                             % eventName
                             % *tablePtr
-                            % (destination.to_string() + "/" + std::to_string(destinationPrefixLength))
+                            % (destination.to_string() + "/" +
+                                  std::to_string(destinationPrefixLength))
                             % scopeName
                             % ((hasGateway == true) ? ("G=" + gateway.to_string()) : "G=---")
                             % oifName
@@ -519,5 +520,7 @@ int main(int argc, char** argv)
       }
    } while(readNetlinkMessage(sd));
 
+   DMHS_LOG(info) << "Cleaning up";
+   close(sd);
    return 0;
 }
