@@ -54,7 +54,7 @@ static unsigned int                                   SeqNumber = 0;
 #define NLMSG_TAIL(message) \
            ((rtattr*)(((long)(message)) + (long)NLMSG_ALIGN((message)->nlmsg_len)))
 static int addattr(nlmsghdr* message, const int maxlen,
-                   const int type, const void* data, const int alen)
+                   const int type, const void* data, const unsigned int alen)
 {
    int     len = RTA_LENGTH(alen);
    rtattr* rta;
@@ -131,7 +131,7 @@ static void handleAddressEvent(const nlmsghdr*      message)
    char                     ifNameBuffer[IF_NAMESIZE];
    const char*              ifName;
    boost::asio::ip::address address;
-   const char*              addressPtr;
+   const char*              addressPtr  = nullptr;
    bool                     isLinkLocal = false;
    const unsigned int       prefixLength = ifa->ifa_prefixlen;
    int                      length = ifalength - NLMSG_LENGTH(sizeof(*ifa));
