@@ -5,11 +5,62 @@
 #include <linux/rtnetlink.h>
 #include <string.h>
 
+#include <filesystem>
+#include <iostream>
+#include <boost/asio/ip/address.hpp>
+#include <boost/program_options.hpp>
+
+#include "logger.h"
+#include "package-version.h"
+
+
 // Example: https://chromium.googlesource.com/chromium/src/+/master/net/base/address_tracker_linux.cc
 
 
+// ###### Handle link change event ##########################################
+static void handleLinkEvent(const ifinfomsg*     ifinfo,
+                            const unsigned short eventType)
+{
+   if( (eventType == RTM_NEWLINK) ||
+       (eventType == RTM_GETLINK) ) {
+      DMHS_LOG(info) << "Link added: ifindex=" << ifinfo->ifi_index;
+   }
+   else if(eventType == RTM_DELLINK) {
+      DMHS_LOG(info) << "Link removed: ifindex=" << ifinfo->ifi_index;
+   }
+}
+
+
+// ###### Handle address change event ##########################################
+static void handleAddressEvent(const ifaddrmsg*     ifaddr,
+                               const unsigned short eventType)
+{
+   if( (eventType == RTM_NEWADDR) ||
+       (eventType == RTM_GETADDR) ) {
+      DMHS_LOG(info) << "Address added: ifindex=" << ifaddr->ifa_index;
+   }
+   else if(eventType == RTM_DELADDR) {
+      DMHS_LOG(info) << "Address removed: ifindex=" << ifaddr->ifa_index;
+   }
+}
+
+
+// ###### Handle route change event #########################################
+static void handleRouteEvent(const rtmsg*         rt,
+                             const unsigned short eventType)
+{
+   if( (eventType == RTM_NEWROUTE) ||
+       (eventType == RTM_GETROUTE) ) {
+      DMHS_LOG(info) << "Route added";
+   }
+   else if(eventType == RTM_DELROUTE) {
+      DMHS_LOG(info) << "Route removed";
+   }
+}
+
+
 // ###### Send Netlink request ##############################################
-bool sendNetlinkRequest(const int sd, const int type)
+static bool sendNetlinkRequest(const int sd, const int type)
 {
    static unsigned int seqNumber = 0;
 
@@ -39,7 +90,7 @@ bool sendNetlinkRequest(const int sd, const int type)
 
 
 // ###### Read Netlink message ##############################################
-bool readNetlinkMessage(const int sd)
+static bool readNetlinkMessage(const int sd)
 {
    // 8192 to avoid message truncation on platforms with page size > 4096
    struct nlmsghdr buffer[8192 / sizeof(struct nlmsghdr)];
@@ -66,22 +117,19 @@ bool readNetlinkMessage(const int sd)
                }
              break;
             case RTM_NEWLINK:
-               puts("RTM_NEWLINK");
-             break;
             case RTM_DELLINK:
-               puts("RTM_DELLINK");
+            case RTM_GETLINK:
+               handleLinkEvent((const ifinfomsg*)header, header->nlmsg_type);
              break;
             case RTM_NEWADDR:
-               puts("NEW ADDR");
-             break;
             case RTM_DELADDR:
-               puts("DEL ADDR");
+            case RTM_GETADDR:
+               handleAddressEvent((const ifaddrmsg*)header, header->nlmsg_type);
              break;
             case RTM_NEWROUTE:
-               puts("RTM_NEWROUTE");
-             break;
             case RTM_DELROUTE:
-               puts("RTM_DELROUTE");
+            case RTM_GETROUTE:
+               handleRouteEvent((const rtmsg*)header, header->nlmsg_type);
              break;
             default:
                puts("UNKNOWN!");
@@ -96,6 +144,66 @@ bool readNetlinkMessage(const int sd)
 
 int main(int argc, char** argv)
 {
+   // ====== Initialise =====================================================
+   unsigned int          logLevel;
+   bool                  logColor;
+   std::filesystem::path logFile;
+
+   boost::program_options::options_description commandLineOptions;
+   commandLineOptions.add_options()
+      ( "help,h",
+           "Print help message" )
+      ( "version",
+           "Print program version" )
+
+      ( "loglevel,L",
+           boost::program_options::value<unsigned int>(&logLevel)->default_value(boost::log::trivial::severity_level::info),
+           "Set logging level" )
+      ( "logfile,O",
+           boost::program_options::value<std::filesystem::path>(&logFile)->default_value(std::filesystem::path()),
+           "Log file" )
+      ( "logcolor,Z",
+           boost::program_options::value<bool>(&logColor)->default_value(true),
+           "Use ANSI color escape sequences for log output" )
+      ( "verbose,v",
+           boost::program_options::value<unsigned int>(&logLevel)->implicit_value(boost::log::trivial::severity_level::trace),
+           "Verbose logging level" )
+      ( "quiet,q",
+           boost::program_options::value<unsigned int>(&logLevel)->implicit_value(boost::log::trivial::severity_level::warning),
+           "Quiet logging level" );
+
+   // ====== Handle command-line arguments ==================================
+   boost::program_options::variables_map vm;
+   try {
+      boost::program_options::store(boost::program_options::command_line_parser(argc, argv).
+                                       style(
+                                          boost::program_options::command_line_style::style_t::default_style|
+                                          boost::program_options::command_line_style::style_t::allow_long_disguise
+                                       ).
+                                       options(commandLineOptions).
+                                       run(), vm);
+      boost::program_options::notify(vm);
+   }
+   catch(std::exception& e) {
+      std::cerr << "ERROR: Bad parameter: " << e.what() << "\n";
+      return 1;
+   }
+
+   if(vm.count("help")) {
+       std::cerr << "Usage: " << argv[0] << " parameters" << "\n"
+                 << commandLineOptions;
+       return 1;
+   }
+   else if(vm.count("verion")) {
+      std::cout << "Dynamic Multi-Homing Setup (DynMHS), Version " << DYNMHS_VERSION << "\n";
+      return 0;
+   }
+
+   // ====== Initialize =====================================================
+   initialiseLogger(logLevel, logColor,
+                    (logFile != std::filesystem::path()) ? logFile.string().c_str() : nullptr);
+
+
    // ====== Open Netlink socket ============================================
    int fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
    if(fd < 0) {

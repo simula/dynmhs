@@ -42,7 +42,10 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
 #### PROGRAMS                                                            ####
 #############################################################################
 
-ADD_EXECUTABLE(dynmhs dynmhs.cc)
+ADD_EXECUTABLE(dynmhs
+   dynmhs.cc
+   logger.cc
+)
 TARGET_LINK_LIBRARIES(dynmhs ${Boost_LIBRARIES})
 INSTALL(TARGETS dynmhs         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 # INSTALL(FILES   dynmhs.1       DESTINATION         ${CMAKE_INSTALL_MANDIR}/man1)
