@@ -14,15 +14,16 @@ Rules-Requires-Root: no
 
 Package: dynmhs
 Architecture: any
-Depends: ${misc:Depends},
+Depends: iproute2,
+         ${misc:Depends},
          ${shlibs:Depends}
 Recommends: hipercontracer,
-            netperfmeter,iproute2,
-            subnetcalc,
-Suggests: td-system-tools,
- iputils-tracepath,
-            ping | iputils-ping,
-            traceroute | inetutils-traceroute,
+            netperfmeter,
+            subnetcalc
+Suggests: iputils-tracepath,
+          ping | iputils-ping,
+          td-system-tools,
+          traceroute | inetutils-traceroute
 Description: Dynamic Multi-Homing Setup (DynMHS)
  DynMHS dynamically sets up IP routing rules, to allow using multiple
  network connections simultaneously. That is, for each relavant network
