@@ -14,6 +14,12 @@ BuildRequires: gcc
 BuildRequires: gcc-c++
 BuildRoot: %{_tmppath}/%{name}-%{version}-build
 
+Requires: iproute
+Recommends: hipercontracer
+Recommends: netperfmeter
+Recommends: subnetcalc
+Suggests: td-system-info
+
 
 %description
 DynMHS dynamically sets up IP routing rules, to allow using multiple
@@ -40,7 +46,7 @@ can take advantage of multi-homing for redundancy and load balancing.
 %{_bindir}/dynmhs
 %{_datadir}/bash-completion/completions/dynmhs
 %{_mandir}/man1/dynmhs.1.gz
-%{_sysconfdir}/hipercontracer/dynmhs.conf
+%{_sysconfdir}/dynmhs/dynmhs.conf
 /lib/systemd/system/dynmhs.service
 
 
