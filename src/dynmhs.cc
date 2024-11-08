@@ -53,9 +53,10 @@ static void handleError(const nlmsghdr* message)
 {
    const nlmsgerr* errormsg = (const nlmsgerr*)message;
    if(errormsg != nullptr) {
-      printf("Netlink error %d for seqnum %u!\n",
-            errormsg->error,
-            errormsg->msg.nlmsg_seq);
+      DMHS_LOG(error) << boost::format("Netlink error %d (%s) for seqnum %u")
+                            % errormsg->error
+                            % strerror(errormsg->error)
+                            % errormsg->msg.nlmsg_seq;
    }
 }
 
@@ -97,8 +98,7 @@ static void handleLinkEvent(const nlmsghdr* message)
 
 
 // ###### Handle address change event ##########################################
-static void handleAddressEvent(const nlmsghdr*      message,
-                               const unsigned short eventType)
+static void handleAddressEvent(const nlmsghdr*      message)
 {
    const ifaddrmsg* ifa       = (const ifaddrmsg*)NLMSG_DATA(message);
    const int        ifalength = message->nlmsg_len;
@@ -129,7 +129,7 @@ static void handleAddressEvent(const nlmsghdr*      message,
 
    // ====== Show results ===================================================
    const char* eventName;
-   switch(eventType) {
+   switch(message->nlmsg_type) {
       case RTM_NEWADDR:
          eventName = "NEW";
        break;
@@ -146,12 +146,20 @@ static void handleAddressEvent(const nlmsghdr*      message,
                          % ifName
                          % ifIndex
                          % address.to_string();
+
+   // ====== Check whether an update in the custom table is necessary =======
+   const auto found = InterfaceMap.find(ifName);
+   if(found != InterfaceMap.end()) {
+      const unsigned int customTable = found->second;
+      DMHS_LOG(info) << "Update of rules for table " << customTable << " is necessary ...";
+
+
+   }
 }
 
 
 // ###### Handle route change event #########################################
-static void handleRouteEvent(const nlmsghdr*      message,
-                             const unsigned short eventType)
+static void handleRouteEvent(const nlmsghdr*      message)
 {
    const int    messageLength = message->nlmsg_len;
    const rtmsg* rtm           = (const rtmsg*)NLMSG_DATA(message);
@@ -212,7 +220,7 @@ static void handleRouteEvent(const nlmsghdr*      message,
    if(*tablePtr == RT_TABLE_MAIN) {
       // ====== Show results ================================================
       const char* eventName;
-      switch(eventType) {
+      switch(message->nlmsg_type) {
          case RTM_NEWROUTE:
             eventName = "NEW";
          break;
@@ -324,11 +332,11 @@ static bool readNetlinkMessage(const int sd)
              break;
             case RTM_NEWADDR:
             case RTM_DELADDR:
-               handleAddressEvent(header, header->nlmsg_type);
+               handleAddressEvent(header);
              break;
             case RTM_NEWROUTE:
             case RTM_DELROUTE:
-               handleRouteEvent(header, header->nlmsg_type);
+               handleRouteEvent(header);
              break;
             default:
                puts("UNEXPECTED!");
@@ -341,12 +349,14 @@ static bool readNetlinkMessage(const int sd)
 }
 
 
+
+// ###### Main program ######################################################
 int main(int argc, char** argv)
 {
    // ====== Initialise =====================================================
-   unsigned int             logLevel;
-   bool                     logColor;
-   std::filesystem::path    logFile;
+   unsigned int          logLevel;
+   bool                  logColor;
+   std::filesystem::path logFile;
 
    boost::program_options::options_description commandLineOptions;
    commandLineOptions.add_options()
@@ -433,17 +443,17 @@ int main(int argc, char** argv)
    // ====== Open Netlink socket ============================================
    int sd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
    if(sd < 0) {
-      perror("socket");
+      DMHS_LOG(error) << "socket(AF_NETLINK) failed: " << strerror(errno);
       return 1;
    }
-   const int sndbuf = 32768;
+   const int sndbuf = 65536;
    if(setsockopt(sd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) < 0) {
-      perror("setsockopt(SO_SNDBUF)");
+      DMHS_LOG(error) << "setsockopt(SO_SNDBUF) failed: " << strerror(errno);
       return 1;
    }
    const int rcvbuf = 1024*1024;
    if(setsockopt(sd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf)) < 0) {
-      perror("setsockopt(SO_RCVBUF)");
+      DMHS_LOG(error) << "setsockopt(SO_RCVBUF) failed: " << strerror(errno);
       return 1;
    }
 
@@ -455,40 +465,40 @@ int main(int argc, char** argv)
                   RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR |
                   RTMGRP_IPV4_ROUTE  | RTMGRP_IPV6_ROUTE;
    if(bind(sd, (struct sockaddr *) &sa, sizeof(sa)) != 0) {
-      perror("bind");
+      DMHS_LOG(error) << "bind(AF_NETLINK) failed: " << strerror(errno);
       return 1;
    }
 
    // ====== Request initial configuration ==================================
    if(!sendNetlinkRequest(sd, RTM_GETLINK)) {
-      perror("sendmsg(RTM_GETLINK)");
+      DMHS_LOG(error) << "sendmsg(RTM_GETLINK) failed: " << strerror(errno);
       return 1;
    }
    if(!readNetlinkMessage(sd)) {
-      perror("recvmsg()");
+      DMHS_LOG(error) << "recvmsg(RTM_GETLINK) failed: " << strerror(errno);
       return 1;
    }
 
    if(!sendNetlinkRequest(sd, RTM_GETADDR)) {
-      perror("sendmsg(RTM_GETADDR)");
+      DMHS_LOG(error) << "sendmsg(RTM_GETADDR) failed: " << strerror(errno);
       return 1;
    }
    if(!readNetlinkMessage(sd)) {
-      perror("recvmsg()");
+      DMHS_LOG(error) << "recvmsg(RTM_GETADDR) failed: " << strerror(errno);
       return 1;
    }
 
    if(!sendNetlinkRequest(sd, RTM_GETROUTE)) {
-      perror("sendmsg(RTM_GETROUTE)");
+      DMHS_LOG(error) << "sendmsg(RTM_GETROUTE) failed: " << strerror(errno);
       return 1;
    }
    if(!readNetlinkMessage(sd)) {
-      perror("recvmsg()");
+      DMHS_LOG(error) << "recvmsg(RTM_GETROUTE) failed: " << strerror(errno);
       return 1;
    }
 
    // ====== Main loop ======================================================
-   puts("Main loop ...");
+   DMHS_LOG(info) << "Main loop ...";
    do {
       while(!CommandQueue.empty()) {
          std::pair<const nlmsghdr*, size_t>& command = CommandQueue.front();
@@ -501,7 +511,8 @@ int main(int argc, char** argv)
          const iovec  iov { (void*)message, messageLength };
          const msghdr msg { &sa, sizeof(sa), (iovec*)&iov, 1, nullptr, 0, 0 };
          if(sendmsg(sd, &msg, 0) < 0) {
-            perror("sendmsg()");
+            DMHS_LOG(error) << "sendmsg() failed: " << strerror(errno);
+            return 1;
          }
          delete [] message;
          CommandQueue.pop();
