@@ -1,0 +1,35 @@
+Source: dynmhs
+Section: net
+Priority: optional
+Maintainer: Thomas Dreibholz <thomas.dreibholz@gmail.com>
+Homepage: https://www.nntb.no/~dreibh/dynmhs/
+Vcs-Git: https://github.com/simula/dynmhs.git
+Vcs-Browser: https://github.com/simula/dynmhs
+Build-Depends: cmake,
+               debhelper (>= 12),
+               libboost-log-dev,
+               libboost-program-options-dev
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+
+Package: dynmhs
+Architecture: any
+Depends: ${misc:Depends},
+         ${shlibs:Depends}
+Recommends: hipercontracer,
+            netperfmeter,iproute2,
+            subnetcalc,
+Suggests: td-system-tools,
+ iputils-tracepath,
+            ping | iputils-ping,
+            traceroute | inetutils-traceroute,
+Description: Dynamic Multi-Homing Setup (DynMHS)
+ DynMHS dynamically sets up IP routing rules, to allow using multiple
+ network connections simultaneously. That is, for each relavant network
+ interface, a separate routing table is created and maintained. For each
+ source address of a network interface managed by DynMHS, routing rules
+ are maintained to point to the corresponding routing table. Software
+ binding to a specific interface address can then use a specific
+ network. In addition, multi-homing-capable network protocols like the
+ Multi-Path TCP (MPTCP) or the Stream Control Transmission Protocol (SCTP)
+ can take advantage of multi-homing for redundancy and load balancing.
