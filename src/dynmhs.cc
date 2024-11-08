@@ -53,13 +53,13 @@ static unsigned int                                   SeqNumber = 0;
 // ###### Arribute helper ###################################################
 #define NLMSG_TAIL(message) \
            ((rtattr*)(((long)(message)) + (long)NLMSG_ALIGN((message)->nlmsg_len)))
-static int addattr(nlmsghdr* message, const int maxlen,
+static int addattr(nlmsghdr* message, const unsigned int maxlen,
                    const int type, const void* data, const unsigned int alen)
 {
    int     len = RTA_LENGTH(alen);
    rtattr* rta;
 
-   assure(NLMSG_ALIGN(message->nlmsg_len) + RTA_ALIGN(len) <= maxlen);
+   assure((unsigned int)NLMSG_ALIGN(message->nlmsg_len) + (unsigned int)RTA_ALIGN(len) <= maxlen);
    rta = NLMSG_TAIL(message);
    rta->rta_type = type;
    rta->rta_len = len;
