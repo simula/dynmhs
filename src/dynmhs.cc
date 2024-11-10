@@ -78,10 +78,18 @@ static void handleError(const nlmsghdr* message)
 {
    const nlmsgerr* errormsg = (const nlmsgerr*)NLMSG_DATA(message);
    if(errormsg != nullptr) {
-      DMHS_LOG(error) << boost::format("Netlink error %d (%s) for seqnum %u")
-                            % errormsg->error
-                            % strerror(-errormsg->error)
-                            % errormsg->msg.nlmsg_seq;
+      // ====== Acknowledgement =============================================
+      if(errormsg->error == 0) {
+        DMHS_LOG(trace) << boost::format("ack for seqnum %u")
+                              % errormsg->msg.nlmsg_seq;
+      }
+      // ====== Error =======================================================
+      else {
+        DMHS_LOG(warning) << boost::format("Netlink error %d (%s) for seqnum %u")
+                                % errormsg->error
+                                % strerror(-errormsg->error)
+                                % errormsg->msg.nlmsg_seq;
+      }
    }
 }
 
@@ -206,7 +214,7 @@ static void handleAddressEvent(const nlmsghdr*      message)
                                           RTM_NEWRULE : RTM_DELRULE;
          request->header.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK;
          request->header.nlmsg_pid   = 0;  // This field is opaque to netlink.
-         request->header.nlmsg_seq   = SeqNumber++;
+         request->header.nlmsg_seq   = ++SeqNumber;
          request->frh.family         = ifa->ifa_family;
          request->frh.action         = FR_ACT_TO_TBL;
          request->frh.table          = RT_TABLE_UNSPEC;
@@ -227,6 +235,7 @@ static void handleAddressEvent(const nlmsghdr*      message)
          // ------ Enqueue message for sending it later ---------------------
          RequestQueue.push(std::pair<const nlmsghdr*, size_t>(
             &request->header, request->header.nlmsg_len));
+         DMHS_LOG(trace) << "Request seqnum " << SeqNumber;
       }
    }
 }
@@ -344,10 +353,11 @@ static void handleRouteEvent(const nlmsghdr*      message)
          memcpy(updateMessage, message, messageLength);
 
          updateMessage->nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL | NLM_F_ACK;
-         updateMessage->nlmsg_seq   = SeqNumber++;
+         updateMessage->nlmsg_seq   = ++SeqNumber;
 
          RequestQueue.push(std::pair<const nlmsghdr*, size_t>(
             updateMessage, messageLength));
+         DMHS_LOG(trace) << "Request seqnum " << SeqNumber;
       }
    }
 }
@@ -364,7 +374,7 @@ static bool sendSimpleNetlinkRequest(const int sd, const int type)
    request.header.nlmsg_type  = type;
    request.header.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK;
    request.header.nlmsg_pid   = 0;  // This field is opaque to netlink.
-   request.header.nlmsg_seq   = SeqNumber++;
+   request.header.nlmsg_seq   = ++SeqNumber;
    request.msg.rtgen_family   = AF_UNSPEC;
 
    struct sockaddr_nl sa;
@@ -407,7 +417,9 @@ static bool sendQueuedRequests(const int sd)
 
 
 // ###### Read Netlink message ##############################################
-static bool receiveNetlinkMessages(const int sd, const bool nonBlocking = false)
+static bool receiveNetlinkMessages(const int  sd,
+                                   const bool nonBlocking = false,
+                                   const bool errorOnly   = false)
 {
    nlmsghdr    buffer[65536 / sizeof(struct nlmsghdr)];
    iovec       iov { buffer, sizeof(buffer) };
@@ -419,9 +431,15 @@ static bool receiveNetlinkMessages(const int sd, const bool nonBlocking = false)
    while( (length = recvmsg(sd, &msg, flags)) > 0) {
       for(const nlmsghdr* header = (const nlmsghdr*)buffer;
           NLMSG_OK(header, length); header = NLMSG_NEXT(header, length)) {
+         if( (errorOnly) && (header->nlmsg_type != NLMSG_ERROR) ) {
+            continue;
+         }
          switch(header->nlmsg_type) {
             case NLMSG_DONE:
-               // The end of multipart message
+               // The end of a multipart message
+               if(nonBlocking) {
+                  continue;
+               }
                return true;
              break;
             case NLMSG_ERROR:
@@ -509,38 +527,38 @@ void cleanUpDynMHS(int sd)
       DMHS_LOG(info) << "Cleaning up table " << customTable << " ...";
 
       // ------ Build RTM_DELRULE request -----------------------------------
-      struct _request {
-        nlmsghdr     header;
-        fib_rule_hdr frh;
-        char         buffer[1024];
-      };
-      _request* request = (_request*)new char[sizeof(_request)];
-      assure(request != nullptr);
+      for(unsigned int v = 0; v <= 1; v++) {   // Requests for IPv4 and IPv6
+         struct _request {
+            nlmsghdr     header;
+            fib_rule_hdr frh;
+            char         buffer[64];
+         } request { };
+         request.header.nlmsg_len   = NLMSG_LENGTH(sizeof(request.frh));
+         request.header.nlmsg_type  = RTM_DELRULE;
+         request.header.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+         request.header.nlmsg_pid   = 0;  // This field is opaque to netlink.
+         request.header.nlmsg_seq   = ++SeqNumber;
+         request.frh.family         = (v == 0) ? AF_INET : AF_INET6;
+         request.frh.action         = FR_ACT_TO_TBL;
+         request.frh.table          = RT_TABLE_UNSPEC;
 
-      request->header.nlmsg_len   = NLMSG_LENGTH(sizeof(request->frh));
-      request->header.nlmsg_type  = RTM_DELRULE;
-      request->header.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
-      request->header.nlmsg_pid   = 0;  // This field is opaque to netlink.
-      request->header.nlmsg_seq   = SeqNumber++;
-      request->frh.family         = AF_INET;
-      request->frh.action         = FR_ACT_TO_TBL;
-      request->frh.table          = RT_TABLE_UNSPEC;
+         // ------ "priority" parameter -------------------------------------
+         assure( addattr(&request.header, sizeof(request), FRA_PRIORITY,
+                         &customTable, sizeof(uint32_t)) == 0 );
 
-      // ------ "priority" parameter ----------------------------------------
-      assure( addattr(&request->header, sizeof(*request), FRA_PRIORITY,
-                      &customTable, sizeof(uint32_t)) == 0 );
+         // ------ "lookup" parameter ---------------------------------------
+         assure( addattr(&request.header, sizeof(request), FRA_TABLE,
+                        &customTable, sizeof(uint32_t)) == 0 );
 
-      // ------ "lookup" parameter ------------------------------------------
-      assure( addattr(&request->header, sizeof(*request), FRA_TABLE,
-                      &customTable, sizeof(uint32_t)) == 0 );
-
-      struct sockaddr_nl sa;
-      memset(&sa, 0, sizeof(sa));
-      sa.nl_family = AF_NETLINK;
-      struct iovec  iov { request, request->header.nlmsg_len };
-      struct msghdr msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
-      if(sendmsg(sd, &msg, 0) < 0) {
-        DMHS_LOG(error) << "sendmsg() failed: " << strerror(errno);
+         DMHS_LOG(trace) << "Request seqnum " << SeqNumber;
+         struct sockaddr_nl sa;
+         memset(&sa, 0, sizeof(sa));
+         sa.nl_family = AF_NETLINK;
+         struct iovec  iov { &request, request.header.nlmsg_len };
+         struct msghdr msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
+         if(sendmsg(sd, &msg, 0) < 0) {
+            DMHS_LOG(error) << "sendmsg() failed: " << strerror(errno);
+         }
       }
 
       // ====== Remove the the custom table =================================
@@ -732,7 +750,17 @@ int main(int argc, char** argv)
 
    // ====== Clean up =======================================================
    DMHS_LOG(info) << "Cleaning up ...";
+
    cleanUpDynMHS(sd);
+   if(sigprocmask(SIG_UNBLOCK, &mask, NULL) == -1) {
+      perror("sigprocmask() call failed!");
+   }
+
+   puts("YYY");
+   while(receiveNetlinkMessages(sd, false, true)) {
+     puts("XXX");
+   }
+
    close(sd);
    close(sfd);
    DMHS_LOG(info) << "Done!";
