@@ -2,7 +2,15 @@
 
 ## Description
 
-DynMHS dynamically sets up IP routing rules, to allow using multiple network connections simultaneously. That is, for each relevant network interface, a separate routing table is created and maintained. For each source address of a network interface managed by DynMHS, routing rules are maintained to point to the corresponding routing table. Software binding to a specific interface address can then use a specific network. In addition, multi-homing-capable network protocols like the Multi-Path TCP (MPTCP) or the Stream Control Transmission Protocol (SCTP) can take advantage of multi-homing for redundancy and load balancing.
+DynMHS dynamically sets up IP routing rules, to allow using multiple network
+connections simultaneously. That is, for each relevant network interface, a
+separate routing table is created and maintained. For each source address of a
+network interface managed by DynMHS, routing rules are maintained to point to
+the corresponding routing table. Software binding to a specific interface
+address can then use a specific network. In addition, multi-homing-capable
+network protocols like the Multi-Path TCP (MPTCP) or the Stream Control
+Transmission Protocol (SCTP) can take advantage of multi-homing for redundancy
+and load balancing.
 
 See the manpage of dynmhs for details!
 
