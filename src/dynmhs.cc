@@ -372,8 +372,8 @@ static void handleRouteEvent(const nlmsghdr* message)
 static bool sendSimpleNetlinkRequest(const int sd, const int type)
 {
    struct _request {
-     struct nlmsghdr header;
-     struct rtgenmsg msg;
+      nlmsghdr header;
+      rtgenmsg msg;
    };
    _request request { };
    request.header.nlmsg_len   = NLMSG_LENGTH(sizeof(request.msg));
@@ -383,13 +383,13 @@ static bool sendSimpleNetlinkRequest(const int sd, const int type)
    request.header.nlmsg_seq   = ++SeqNumber;
    request.msg.rtgen_family   = AF_UNSPEC;
 
-   struct sockaddr_nl sa;
+   sockaddr_nl sa;
    memset(&sa, 0, sizeof(sa));
    sa.nl_family = AF_NETLINK;
 
    DMHS_LOG(trace) << "Request seqnum " << SeqNumber;
-   struct iovec  iov { &request, request.header.nlmsg_len };
-   struct msghdr msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
+   iovec  iov { &request, request.header.nlmsg_len };
+   msghdr msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
    if(sendmsg(sd, &msg, 0) < 0) {
       return false;
    }
@@ -429,7 +429,7 @@ static bool receiveNetlinkMessages(const int  sd,
                                    const bool errorOnly   = false)
 {
    // ====== Initialise structures for recvmsg() ============================
-   nlmsghdr    buffer[65536 / sizeof(struct nlmsghdr)];
+   nlmsghdr    buffer[65536 / sizeof(nlmsghdr)];
    iovec       iov { buffer, sizeof(buffer) };
    sockaddr_nl sa;
    msghdr      msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
@@ -586,11 +586,12 @@ void cleanUpDynMHS(int sd)
       const std::string& interfaceName = iterator->first;
       const unsigned int customTable   = iterator->second;
 
-      // ====== Remove the rules leading to the custom table ================
       DMHS_LOG(info) << "Cleaning up table " << customTable << " ...";
 
       // ------ Build RTM_DELRULE request -----------------------------------
       for(unsigned int v = 0; v <= 1; v++) {   // Requests for IPv4 and IPv6
+
+        // ====== Remove the rules leading to the custom table ==============
          // There may be multiple rules, and only the first one gets deleted!
          // Therefore: iterate until LastError is set (ENOTFOUND)
          do {
@@ -611,11 +612,11 @@ void cleanUpDynMHS(int sd)
                             &customTable, sizeof(uint32_t)) == 0 );
 
             DMHS_LOG(trace) << "Request seqnum " << SeqNumber;
-            struct sockaddr_nl sa;
+            sockaddr_nl sa;
             memset(&sa, 0, sizeof(sa));
             sa.nl_family = AF_NETLINK;
-            struct iovec  iov { &request, request.header.nlmsg_len };
-            struct msghdr msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
+            iovec  iov { &request, request.header.nlmsg_len };
+            msghdr msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
             if(sendmsg(sd, &msg, 0) < 0) {
                 DMHS_LOG(error) << "sendmsg() failed: " << strerror(errno);
             }
@@ -624,9 +625,9 @@ void cleanUpDynMHS(int sd)
                 break;
             }
          } while(LastError == 0);
-      }
 
-      // ====== Remove the the custom table =================================
+         // ====== Remove the the custom table ==============================
+      }
 
    }
 }
@@ -747,7 +748,7 @@ int main(int argc, char** argv)
    sa.nl_groups = RTMGRP_LINK | RTMGRP_NOTIFY |
                   RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR |
                   RTMGRP_IPV4_ROUTE  | RTMGRP_IPV6_ROUTE;
-   if(bind(sd, (struct sockaddr *) &sa, sizeof(sa)) != 0) {
+   if(bind(sd, (sockaddr*)&sa, sizeof(sa)) != 0) {
       DMHS_LOG(error) << "bind(AF_NETLINK) failed: " << strerror(errno);
       return 1;
    }
