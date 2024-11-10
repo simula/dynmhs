@@ -28,6 +28,7 @@
 //
 // Contact: dreibh@simula.no
 
+#include <chrono>
 #include <cstring>
 #include <filesystem>
 #include <iostream>
@@ -49,7 +50,9 @@
 
 static std::map<std::string, unsigned int>            InterfaceMap;
 static std::queue<std::pair<const nlmsghdr*, size_t>> RequestQueue;
-static unsigned int                                   SeqNumber = 0;
+static unsigned int                                   SeqNumber                = 0;
+static unsigned int                                   AwaitedSeqNumber         = 0;
+static bool                                           WaitingForAcknowlegement = false;
 
 
 // ###### Arribute helper ###################################################
@@ -131,7 +134,7 @@ static void handleLinkEvent(const nlmsghdr* message)
 
 
 // ###### Handle address change event ##########################################
-static void handleAddressEvent(const nlmsghdr*      message)
+static void handleAddressEvent(const nlmsghdr* message)
 {
    const ifaddrmsg* ifa       = (const ifaddrmsg*)NLMSG_DATA(message);
    const int        ifalength = message->nlmsg_len;
@@ -204,10 +207,11 @@ static void handleAddressEvent(const nlmsghdr*      message)
          struct _request {
             nlmsghdr     header;
             fib_rule_hdr frh;
-            char         buffer[1024];
+            char         buffer[256];
          };
-         _request* request = (_request*)new char[sizeof(_request)];
+         _request* request = (_request*)new char[sizeof(*request)];
          assure(request != nullptr);
+         memset(request, 0, sizeof(*request));
 
          request->header.nlmsg_len   = NLMSG_LENGTH(sizeof(request->frh));
          request->header.nlmsg_type  = (message->nlmsg_type == RTM_NEWADDR) ?
@@ -242,7 +246,7 @@ static void handleAddressEvent(const nlmsghdr*      message)
 
 
 // ###### Handle route change event #########################################
-static void handleRouteEvent(const nlmsghdr*      message)
+static void handleRouteEvent(const nlmsghdr* message)
 {
    const int    messageLength = message->nlmsg_len;
    const rtmsg* rtm           = (const rtmsg*)NLMSG_DATA(message);
@@ -366,10 +370,11 @@ static void handleRouteEvent(const nlmsghdr*      message)
 // ###### Send simple Netlink request #######################################
 static bool sendSimpleNetlinkRequest(const int sd, const int type)
 {
-   struct {
+   struct _request {
      struct nlmsghdr header;
      struct rtgenmsg msg;
-   } request { };
+   };
+   _request request { };
    request.header.nlmsg_len   = NLMSG_LENGTH(sizeof(request.msg));
    request.header.nlmsg_type  = type;
    request.header.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK;
@@ -381,6 +386,7 @@ static bool sendSimpleNetlinkRequest(const int sd, const int type)
    memset(&sa, 0, sizeof(sa));
    sa.nl_family = AF_NETLINK;
 
+   DMHS_LOG(trace) << "Request seqnum " << SeqNumber;
    struct iovec  iov { &request, request.header.nlmsg_len };
    struct msghdr msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
    if(sendmsg(sd, &msg, 0) < 0) {
@@ -421,6 +427,7 @@ static bool receiveNetlinkMessages(const int  sd,
                                    const bool nonBlocking = false,
                                    const bool errorOnly   = false)
 {
+   // ====== Initialise structures for recvmsg() ============================
    nlmsghdr    buffer[65536 / sizeof(struct nlmsghdr)];
    iovec       iov { buffer, sizeof(buffer) };
    sockaddr_nl sa;
@@ -428,12 +435,25 @@ static bool receiveNetlinkMessages(const int  sd,
    const int   flags = (nonBlocking == true) ? MSG_DONTWAIT : 0;
    int         length;
 
+   // ====== Reception loop =================================================
    while( (length = recvmsg(sd, &msg, flags)) > 0) {
       for(const nlmsghdr* header = (const nlmsghdr*)buffer;
           NLMSG_OK(header, length); header = NLMSG_NEXT(header, length)) {
+
+         // ====== Check whether this acknowledgement was waited ============
+         if((WaitingForAcknowlegement) &&
+            (header->nlmsg_seq == AwaitedSeqNumber)) {
+            DMHS_LOG(debug) << boost::format("Got awaited ack for seqnum %u")
+                                  % header->nlmsg_seq;
+            WaitingForAcknowlegement = false;
+         }
+
+         // ====== Error-only mode for service shutdown =====================
          if( (errorOnly) && (header->nlmsg_type != NLMSG_ERROR) ) {
             continue;
          }
+
+         // ====== Handle the different message types =======================
          switch(header->nlmsg_type) {
             case NLMSG_DONE:
                // The end of a multipart message
@@ -480,6 +500,38 @@ static bool receiveNetlinkMessages(const int  sd,
 }
 
 
+// ###### Wait for Netlink acknowledgement ##################################
+static bool waitForAcknowledgement(const int          sd,
+                                   const unsigned int seqNumber,
+                                   const unsigned int timeout,
+                                   const bool         errorOnly = false)
+{
+   WaitingForAcknowlegement = true;
+   AwaitedSeqNumber         = seqNumber;
+
+   // ====== Reception loop =================================================
+   const std::chrono::time_point<std::chrono::steady_clock> t1 =
+      std::chrono::steady_clock::now();
+   std::chrono::time_point<std::chrono::steady_clock> t2;
+   while(WaitingForAcknowlegement) {
+      t2 = std::chrono::steady_clock::now();
+      int ms = timeout - std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+      if(ms < 1) {
+         ms = 0;
+      }
+      pollfd pfd[1];
+      pfd[0].fd     = sd;
+      pfd[0].events = POLLIN;
+      const int events = poll((pollfd*)&pfd, 1, ms);
+      if(events > 0) {
+         receiveNetlinkMessages(sd, true, errorOnly);
+      }
+   }
+
+   return (WaitingForAcknowlegement == false);
+}
+
+
 // ###### Initialise DynMHS #################################################
 bool initialiseDynMHS(int sd)
 {
@@ -488,8 +540,8 @@ bool initialiseDynMHS(int sd)
       DMHS_LOG(error) << "sendmsg(RTM_GETLINK) failed: " << strerror(errno);
       return false;
    }
-   if(!receiveNetlinkMessages(sd)) {
-      DMHS_LOG(error) << "recvmsg(RTM_GETLINK) failed: " << strerror(errno);
+   if(!waitForAcknowledgement(sd, SeqNumber, 5000)) {
+      DMHS_LOG(error) << "No response to RTM_GETLINK request";
       return false;
    }
 
@@ -498,8 +550,8 @@ bool initialiseDynMHS(int sd)
       DMHS_LOG(error) << "sendmsg(RTM_GETADDR) failed: " << strerror(errno);
       return false;
    }
-   if(!receiveNetlinkMessages(sd)) {
-      DMHS_LOG(error) << "recvmsg(RTM_GETADDR) failed: " << strerror(errno);
+   if(!waitForAcknowledgement(sd, SeqNumber, 5000)) {
+      DMHS_LOG(error) << "No response to RTM_GETADDR request";
       return false;
    }
 
@@ -508,8 +560,8 @@ bool initialiseDynMHS(int sd)
       DMHS_LOG(error) << "sendmsg(RTM_GETROUTE) failed: " << strerror(errno);
       return false;
    }
-   if(!receiveNetlinkMessages(sd)) {
-      DMHS_LOG(error) << "recvmsg(RTM_GETROUTE) failed: " << strerror(errno);
+   if(!waitForAcknowledgement(sd, SeqNumber, 5000)) {
+      DMHS_LOG(error) << "No response to RTM_GETROUTE request";
       return false;
    }
    return true;
@@ -658,19 +710,6 @@ int main(int argc, char** argv)
                     (logFile != std::filesystem::path()) ? logFile.string().c_str() : nullptr);
 
 
-   // ====== Signal handling ================================================
-   sigset_t mask;
-   sigemptyset(&mask);
-   sigaddset(&mask, SIGINT);
-   if(sigprocmask(SIG_BLOCK, &mask, NULL) == -1) {
-      perror("sigprocmask() call failed!");
-   }
-   int sfd = signalfd(-1, &mask, 0);
-   if(sfd < 0) {
-      perror("signalfd() call failed!");
-   }
-
-
    // ====== Open Netlink socket ============================================
    int sd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
    if(sd < 0) {
@@ -710,6 +749,18 @@ int main(int argc, char** argv)
       return 1;
    }
 
+
+   // ====== Signal handling ================================================
+   sigset_t mask;
+   sigemptyset(&mask);
+   sigaddset(&mask, SIGINT);
+   if(sigprocmask(SIG_BLOCK, &mask, NULL) == -1) {
+      perror("sigprocmask() call failed!");
+   }
+   int sfd = signalfd(-1, &mask, 0);
+   if(sfd < 0) {
+      perror("signalfd() call failed!");
+   }
 
    // ====== Main loop ======================================================
    DMHS_LOG(info) << "Main loop ...";
@@ -751,18 +802,20 @@ int main(int argc, char** argv)
    // ====== Clean up =======================================================
    DMHS_LOG(info) << "Cleaning up ...";
 
-   cleanUpDynMHS(sd);
    if(sigprocmask(SIG_UNBLOCK, &mask, NULL) == -1) {
       perror("sigprocmask() call failed!");
    }
-
-   puts("YYY");
-   while(receiveNetlinkMessages(sd, false, true)) {
-     puts("XXX");
+   cleanUpDynMHS(sd);
+   waitForAcknowledgement(sd, SeqNumber, 5000, true);
+   while(!RequestQueue.empty()) {
+      std::pair<const nlmsghdr*, size_t>& command = RequestQueue.front();
+      const nlmsghdr* message = command.first;
+      delete [] message;
+      RequestQueue.pop();
    }
-
    close(sd);
    close(sfd);
+
    DMHS_LOG(info) << "Done!";
    return 0;
 }
