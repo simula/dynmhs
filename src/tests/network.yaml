@@ -26,7 +26,10 @@ network:
       interfaces: []
       addresses:
         - 172.99.99.1/24
+        - fd05:bee6:524:9999::1/64
       routes:
         - to: default
           via: 172.99.99.254
           metric: 200
+        - to: default
+          via: fd05:bee6:524:9999:ffff:ffff:ffff:ffff
