@@ -37,6 +37,8 @@
 #include <boost/asio/ip/address.hpp>
 #include <boost/format.hpp>
 #include <boost/program_options.hpp>
+#include <signal.h>
+#include <sys/signalfd.h>
 #include <linux/rtnetlink.h>
 #include <linux/fib_rules.h>
 
@@ -46,7 +48,7 @@
 
 
 static std::map<std::string, unsigned int>            InterfaceMap;
-static std::queue<std::pair<const nlmsghdr*, size_t>> CommandQueue;
+static std::queue<std::pair<const nlmsghdr*, size_t>> RequestQueue;
 static unsigned int                                   SeqNumber = 0;
 
 
@@ -223,7 +225,7 @@ static void handleAddressEvent(const nlmsghdr*      message)
                          &customTable, sizeof(uint32_t)) == 0 );
 
          // ------ Enqueue message for sending it later ---------------------
-         CommandQueue.push(std::pair<const nlmsghdr*, size_t>(
+         RequestQueue.push(std::pair<const nlmsghdr*, size_t>(
             &request->header, request->header.nlmsg_len));
       }
    }
@@ -344,15 +346,15 @@ static void handleRouteEvent(const nlmsghdr*      message)
          updateMessage->nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL | NLM_F_ACK;
          updateMessage->nlmsg_seq   = SeqNumber++;
 
-         CommandQueue.push(std::pair<const nlmsghdr*, size_t>(
+         RequestQueue.push(std::pair<const nlmsghdr*, size_t>(
             updateMessage, messageLength));
       }
    }
 }
 
 
-// ###### Send Netlink request ##############################################
-static bool sendNetlinkRequest(const int sd, const int type)
+// ###### Send simple Netlink request #######################################
+static bool sendSimpleNetlinkRequest(const int sd, const int type)
 {
    struct {
      struct nlmsghdr header;
@@ -378,16 +380,43 @@ static bool sendNetlinkRequest(const int sd, const int type)
 }
 
 
+// ###### Send queued Netlink requests ######################################
+static bool sendQueuedRequests(const int sd)
+{
+   while(!RequestQueue.empty()) {
+      // ------ Send queued Netlink request ---------------------------------
+      std::pair<const nlmsghdr*, size_t>& command = RequestQueue.front();
+      const nlmsghdr* message       = command.first;
+      const size_t    messageLength = command.second;
+      sockaddr_nl sa;
+      memset(&sa, 0, sizeof(sa));
+      sa.nl_family = AF_NETLINK;
+      const iovec  iov { (void*)message, messageLength };
+      const msghdr msg { &sa, sizeof(sa), (iovec*)&iov, 1, nullptr, 0, 0 };
+      if(sendmsg(sd, &msg, 0) < 0) {
+         DMHS_LOG(error) << "sendmsg() failed: " << strerror(errno);
+         return false;
+      }
+
+      // ------ Remove Netlink request from queue ---------------------------
+      delete [] message;
+      RequestQueue.pop();
+   }
+   return true;
+}
+
+
 // ###### Read Netlink message ##############################################
-static bool readNetlinkMessage(const int sd)
+static bool receiveNetlinkMessages(const int sd, const bool nonBlocking = false)
 {
    nlmsghdr    buffer[65536 / sizeof(struct nlmsghdr)];
    iovec       iov { buffer, sizeof(buffer) };
    sockaddr_nl sa;
    msghdr      msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
+   const int   flags = (nonBlocking == true) ? MSG_DONTWAIT : 0;
+   int         length;
 
-   int length = recvmsg(sd, &msg, 0);
-   while(length > 0) {
+   while( (length = recvmsg(sd, &msg, flags)) > 0) {
       for(const nlmsghdr* header = (const nlmsghdr*)buffer;
           NLMSG_OK(header, length); header = NLMSG_NEXT(header, length)) {
          switch(header->nlmsg_type) {
@@ -411,13 +440,104 @@ static bool readNetlinkMessage(const int sd)
                handleRouteEvent(header);
              break;
             default:
-               puts("UNEXPECTED!");
+               DMHS_LOG(warning) << "Received unexpected header type "
+                                 << (int)header->nlmsg_type;
              break;
          }
       }
-      length = recvmsg(sd, &msg, 0);
+   }
+
+   if( (length < 0) && (errno == EWOULDBLOCK) ) {
+     return true;
    }
    return false;
+}
+
+
+// ###### Initialise DynMHS #################################################
+bool initialiseDynMHS(int sd)
+{
+   // ====== Request and process links ======================================
+   if(!sendSimpleNetlinkRequest(sd, RTM_GETLINK)) {
+      DMHS_LOG(error) << "sendmsg(RTM_GETLINK) failed: " << strerror(errno);
+      return false;
+   }
+   if(!receiveNetlinkMessages(sd)) {
+      DMHS_LOG(error) << "recvmsg(RTM_GETLINK) failed: " << strerror(errno);
+      return false;
+   }
+
+   // ====== Request and process addresses ==================================
+   if(!sendSimpleNetlinkRequest(sd, RTM_GETADDR)) {
+      DMHS_LOG(error) << "sendmsg(RTM_GETADDR) failed: " << strerror(errno);
+      return false;
+   }
+   if(!receiveNetlinkMessages(sd)) {
+      DMHS_LOG(error) << "recvmsg(RTM_GETADDR) failed: " << strerror(errno);
+      return false;
+   }
+
+   // ====== Request and process routes =====================================
+   if(!sendSimpleNetlinkRequest(sd, RTM_GETROUTE)) {
+      DMHS_LOG(error) << "sendmsg(RTM_GETROUTE) failed: " << strerror(errno);
+      return false;
+   }
+   if(!receiveNetlinkMessages(sd)) {
+      DMHS_LOG(error) << "recvmsg(RTM_GETROUTE) failed: " << strerror(errno);
+      return false;
+   }
+   return true;
+}
+
+
+// ###### Clean up DynMHS ###################################################
+void cleanUpDynMHS(int sd)
+{
+   for(auto iterator = InterfaceMap.begin(); iterator != InterfaceMap.end(); iterator++) {
+      const std::string& interfaceName = iterator->first;
+      const unsigned int customTable   = iterator->second;
+
+      // ====== Remove the rules leading to the custom table ================
+      DMHS_LOG(info) << "Cleaning up table " << customTable << " ...";
+
+      // ------ Build RTM_DELRULE request -----------------------------------
+      struct _request {
+        nlmsghdr     header;
+        fib_rule_hdr frh;
+        char         buffer[1024];
+      };
+      _request* request = (_request*)new char[sizeof(_request)];
+      assure(request != nullptr);
+
+      request->header.nlmsg_len   = NLMSG_LENGTH(sizeof(request->frh));
+      request->header.nlmsg_type  = RTM_DELRULE;
+      request->header.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+      request->header.nlmsg_pid   = 0;  // This field is opaque to netlink.
+      request->header.nlmsg_seq   = SeqNumber++;
+      request->frh.family         = AF_INET;
+      request->frh.action         = FR_ACT_TO_TBL;
+      request->frh.table          = RT_TABLE_UNSPEC;
+
+      // ------ "priority" parameter ----------------------------------------
+      assure( addattr(&request->header, sizeof(*request), FRA_PRIORITY,
+                      &customTable, sizeof(uint32_t)) == 0 );
+
+      // ------ "lookup" parameter ------------------------------------------
+      assure( addattr(&request->header, sizeof(*request), FRA_TABLE,
+                      &customTable, sizeof(uint32_t)) == 0 );
+
+      struct sockaddr_nl sa;
+      memset(&sa, 0, sizeof(sa));
+      sa.nl_family = AF_NETLINK;
+      struct iovec  iov { request, request->header.nlmsg_len };
+      struct msghdr msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
+      if(sendmsg(sd, &msg, 0) < 0) {
+        DMHS_LOG(error) << "sendmsg() failed: " << strerror(errno);
+      }
+
+      // ====== Remove the the custom table =================================
+
+   }
 }
 
 
@@ -512,6 +632,19 @@ int main(int argc, char** argv)
                     (logFile != std::filesystem::path()) ? logFile.string().c_str() : nullptr);
 
 
+   // ====== Signal handling ================================================
+   sigset_t mask;
+   sigemptyset(&mask);
+   sigaddset(&mask, SIGINT);
+   if(sigprocmask(SIG_BLOCK, &mask, NULL) == -1) {
+      perror("sigprocmask() call failed!");
+   }
+   int sfd = signalfd(-1, &mask, 0);
+   if(sfd < 0) {
+      perror("signalfd() call failed!");
+   }
+
+
    // ====== Open Netlink socket ============================================
    int sd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
    if(sd < 0) {
@@ -541,57 +674,59 @@ int main(int argc, char** argv)
       return 1;
    }
 
+
    // ====== Request initial configuration ==================================
-   if(!sendNetlinkRequest(sd, RTM_GETLINK)) {
-      DMHS_LOG(error) << "sendmsg(RTM_GETLINK) failed: " << strerror(errno);
+   // cleanUpDynMHS(sd);
+   if(!initialiseDynMHS(sd)) {
       return 1;
    }
-   if(!readNetlinkMessage(sd)) {
-      DMHS_LOG(error) << "recvmsg(RTM_GETLINK) failed: " << strerror(errno);
-      return 1;
-   }
-
-   if(!sendNetlinkRequest(sd, RTM_GETADDR)) {
-      DMHS_LOG(error) << "sendmsg(RTM_GETADDR) failed: " << strerror(errno);
-      return 1;
-   }
-   if(!readNetlinkMessage(sd)) {
-      DMHS_LOG(error) << "recvmsg(RTM_GETADDR) failed: " << strerror(errno);
+   if(!sendQueuedRequests(sd)) {
       return 1;
    }
 
-   if(!sendNetlinkRequest(sd, RTM_GETROUTE)) {
-      DMHS_LOG(error) << "sendmsg(RTM_GETROUTE) failed: " << strerror(errno);
-      return 1;
-   }
-   if(!readNetlinkMessage(sd)) {
-      DMHS_LOG(error) << "recvmsg(RTM_GETROUTE) failed: " << strerror(errno);
-      return 1;
-   }
 
    // ====== Main loop ======================================================
    DMHS_LOG(info) << "Main loop ...";
-   do {
-      while(!CommandQueue.empty()) {
-         std::pair<const nlmsghdr*, size_t>& command = CommandQueue.front();
+   while(true) {
+      // ====== Wait for events =============================================
+      pollfd pfd[2];
+      pfd[0].fd     = sd;
+      pfd[0].events = POLLIN;
+      pfd[1].fd     = sfd;
+      pfd[1].events = POLLIN;
+      const int events = poll((pollfd*)&pfd, 2, -1);
 
-         const nlmsghdr* message       = command.first;
-         const size_t    messageLength = command.second;
-         sockaddr_nl sa;
-         memset(&sa, 0, sizeof(sa));
-         sa.nl_family = AF_NETLINK;
-         const iovec  iov { (void*)message, messageLength };
-         const msghdr msg { &sa, sizeof(sa), (iovec*)&iov, 1, nullptr, 0, 0 };
-         if(sendmsg(sd, &msg, 0) < 0) {
-            DMHS_LOG(error) << "sendmsg() failed: " << strerror(errno);
-            return 1;
+      // ====== Handle events ===============================================
+      if(events > 0) {
+         // ------ Read Netlink responses -----------------------------------
+         if(pfd[0].revents & POLLIN) {
+            if(!receiveNetlinkMessages(sd, true)) {
+               DMHS_LOG(error) << "recvmsg() failed: " << strerror(errno);
+               break;
+            }
          }
-         delete [] message;
-         CommandQueue.pop();
-      }
-   } while(readNetlinkMessage(sd));
 
-   DMHS_LOG(info) << "Cleaning up";
+         // ------ Signal (SIGINT) ------------------------------------------
+         if(pfd[1].revents & POLLIN) {
+            signalfd_siginfo fdsi;
+            if(read(sfd, &fdsi, sizeof(fdsi))) {
+               std::cout << "\nGot signal " << fdsi.ssi_signo << "\n";
+               break;
+            }
+         }
+      }
+
+      if(!sendQueuedRequests(sd)) {
+         return 1;
+      }
+   }
+
+
+   // ====== Clean up =======================================================
+   DMHS_LOG(info) << "Cleaning up ...";
+   cleanUpDynMHS(sd);
    close(sd);
+   close(sfd);
+   DMHS_LOG(info) << "Done!";
    return 0;
 }
