@@ -52,6 +52,7 @@ static std::map<std::string, unsigned int>            InterfaceMap;
 static std::queue<std::pair<const nlmsghdr*, size_t>> RequestQueue;
 static unsigned int                                   SeqNumber                = 0;
 static unsigned int                                   AwaitedSeqNumber         = 0;
+static int                                            LastError                = 0;
 static bool                                           WaitingForAcknowlegement = false;
 
 
@@ -88,10 +89,10 @@ static void handleError(const nlmsghdr* message)
       }
       // ====== Error =======================================================
       else {
-        DMHS_LOG(warning) << boost::format("Netlink error %d (%s) for seqnum %u")
-                                % errormsg->error
-                                % strerror(-errormsg->error)
-                                % errormsg->msg.nlmsg_seq;
+        DMHS_LOG(trace) << boost::format("Netlink error %d (%s) for seqnum %u")
+                              % errormsg->error
+                              % strerror(-errormsg->error)
+                              % errormsg->msg.nlmsg_seq;
       }
    }
 }
@@ -443,8 +444,18 @@ static bool receiveNetlinkMessages(const int  sd,
          // ====== Check whether this acknowledgement was waited ============
          if((WaitingForAcknowlegement) &&
             (header->nlmsg_seq == AwaitedSeqNumber)) {
-            DMHS_LOG(debug) << boost::format("Got awaited ack for seqnum %u")
-                                  % header->nlmsg_seq;
+            if( (header->nlmsg_type == NLMSG_ERROR) &&
+                (header->nlmsg_len >= NLMSG_LENGTH(sizeof(nlmsgerr))) ) {
+              const nlmsgerr* errormsg = (const nlmsgerr*)NLMSG_DATA(header);
+              LastError = errormsg->error;
+            }
+            else {
+               LastError = 0;   // success
+            }
+            DMHS_LOG(debug) << boost::format("Got awaited ack for seqnum %u: error %d (%s)")
+                                  % header->nlmsg_seq
+                                  % LastError
+                                  % strerror(-LastError);
             WaitingForAcknowlegement = false;
          }
 
@@ -580,37 +591,39 @@ void cleanUpDynMHS(int sd)
 
       // ------ Build RTM_DELRULE request -----------------------------------
       for(unsigned int v = 0; v <= 1; v++) {   // Requests for IPv4 and IPv6
-         struct _request {
-            nlmsghdr     header;
-            fib_rule_hdr frh;
-            char         buffer[64];
-         } request { };
-         request.header.nlmsg_len   = NLMSG_LENGTH(sizeof(request.frh));
-         request.header.nlmsg_type  = RTM_DELRULE;
-         request.header.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
-         request.header.nlmsg_pid   = 0;  // This field is opaque to netlink.
-         request.header.nlmsg_seq   = ++SeqNumber;
-         request.frh.family         = (v == 0) ? AF_INET : AF_INET6;
-         request.frh.action         = FR_ACT_TO_TBL;
-         request.frh.table          = RT_TABLE_UNSPEC;
+         // There may be multiple rules, and only the first one gets deleted!
+         // Therefore: iterate until LastError is set (ENOTFOUND)
+         do {
+            struct _request {
+                nlmsghdr     header;
+                fib_rule_hdr frh;
+                char         buffer[64];
+            } request { };
+            request.header.nlmsg_len   = NLMSG_LENGTH(sizeof(request.frh));
+            request.header.nlmsg_type  = RTM_DELRULE;
+            request.header.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+            request.header.nlmsg_pid   = 0;  // This field is opaque to netlink.
+            request.header.nlmsg_seq   = ++SeqNumber;
+            request.frh.family         = (v == 0) ? AF_INET : AF_INET6;
 
-         // ------ "priority" parameter -------------------------------------
-         assure( addattr(&request.header, sizeof(request), FRA_PRIORITY,
-                         &customTable, sizeof(uint32_t)) == 0 );
+            // ------ "priority" parameter -------------------------------------
+            assure( addattr(&request.header, sizeof(request), FRA_PRIORITY,
+                            &customTable, sizeof(uint32_t)) == 0 );
 
-         // ------ "lookup" parameter ---------------------------------------
-         assure( addattr(&request.header, sizeof(request), FRA_TABLE,
-                        &customTable, sizeof(uint32_t)) == 0 );
-
-         DMHS_LOG(trace) << "Request seqnum " << SeqNumber;
-         struct sockaddr_nl sa;
-         memset(&sa, 0, sizeof(sa));
-         sa.nl_family = AF_NETLINK;
-         struct iovec  iov { &request, request.header.nlmsg_len };
-         struct msghdr msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
-         if(sendmsg(sd, &msg, 0) < 0) {
-            DMHS_LOG(error) << "sendmsg() failed: " << strerror(errno);
-         }
+            DMHS_LOG(trace) << "Request seqnum " << SeqNumber;
+            struct sockaddr_nl sa;
+            memset(&sa, 0, sizeof(sa));
+            sa.nl_family = AF_NETLINK;
+            struct iovec  iov { &request, request.header.nlmsg_len };
+            struct msghdr msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
+            if(sendmsg(sd, &msg, 0) < 0) {
+                DMHS_LOG(error) << "sendmsg() failed: " << strerror(errno);
+            }
+            if(!waitForAcknowledgement(sd, SeqNumber, 5000, true)) {
+                DMHS_LOG(error) << "Timeout waiting for acknowledgement";
+                break;
+            }
+         } while(LastError == 0);
       }
 
       // ====== Remove the the custom table =================================
@@ -806,7 +819,6 @@ int main(int argc, char** argv)
       perror("sigprocmask() call failed!");
    }
    cleanUpDynMHS(sd);
-   waitForAcknowledgement(sd, SeqNumber, 5000, true);
    while(!RequestQueue.empty()) {
       std::pair<const nlmsghdr*, size_t>& command = RequestQueue.front();
       const nlmsghdr* message = command.first;
