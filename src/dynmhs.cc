@@ -76,11 +76,11 @@ static int addattr(nlmsghdr* message, const unsigned int maxlen,
 // ###### Handle error ######################################################
 static void handleError(const nlmsghdr* message)
 {
-   const nlmsgerr* errormsg = (const nlmsgerr*)message;
+   const nlmsgerr* errormsg = (const nlmsgerr*)NLMSG_DATA(message);
    if(errormsg != nullptr) {
       DMHS_LOG(error) << boost::format("Netlink error %d (%s) for seqnum %u")
                             % errormsg->error
-                            % strerror(errormsg->error)
+                            % strerror(-errormsg->error)
                             % errormsg->msg.nlmsg_seq;
    }
 }
@@ -425,19 +425,27 @@ static bool receiveNetlinkMessages(const int sd, const bool nonBlocking = false)
                return true;
              break;
             case NLMSG_ERROR:
-               handleError(header);
+               if(header->nlmsg_len >= NLMSG_LENGTH(sizeof(nlmsgerr))) {
+                  handleError(header);
+               }
              break;
             case RTM_NEWLINK:
             case RTM_DELLINK:
-               handleLinkEvent(header);
+               if(header->nlmsg_len >= NLMSG_LENGTH(sizeof(ifinfomsg))) {
+                  handleLinkEvent(header);
+               }
              break;
             case RTM_NEWADDR:
             case RTM_DELADDR:
-               handleAddressEvent(header);
+               if(header->nlmsg_len >= NLMSG_LENGTH(sizeof(ifaddrmsg))) {
+                  handleAddressEvent(header);
+               }
              break;
             case RTM_NEWROUTE:
             case RTM_DELROUTE:
-               handleRouteEvent(header);
+               if(header->nlmsg_len >= NLMSG_LENGTH(sizeof(rtmsg))) {
+                  handleRouteEvent(header);
+               }
              break;
             default:
                DMHS_LOG(warning) << "Received unexpected header type "
