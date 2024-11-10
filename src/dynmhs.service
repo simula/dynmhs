@@ -33,14 +33,20 @@ Description=Dynamic Multi-Homing Setup (DynMHS)
 Documentation=man:dynmhs(1)
 After=network-online.target
 Wants=network-online.target
+ConditionCapability=CAP_NET_ADMIN
 
 [Service]
 Type=simple
+User=root
 EnvironmentFile=/etc/dynmhs/dynmhs.conf
 
 ExecStart=/usr/bin/dynmhs \
    --loglevel ${LOGLEVEL} \
-   ${OPTIONS}
+   --interface ${NETWORK1} \
+   --interface ${NETWORK2} \
+   --interface ${NETWORK3} \
+   --interface ${NETWORK4} \
+   --interface ${NETWORK5}
 
 KillSignal=SIGINT
 KillMode=control-group
@@ -51,7 +57,7 @@ RestartSec=15
 PrivateNetwork=no
 PrivateTmp=yes
 InaccessibleDirectories=/home
-CapabilityBoundingSet=
+CapabilityBoundingSet=CAP_NET_ADMIN
 
 [Install]
 WantedBy=multi-user.target

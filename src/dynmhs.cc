@@ -575,6 +575,7 @@ bool initialiseDynMHS(int sd)
       DMHS_LOG(error) << "No response to RTM_GETROUTE request";
       return false;
    }
+
    return true;
 }
 
@@ -627,8 +628,8 @@ void cleanUpDynMHS(int sd)
          } while(LastError == 0);
 
          // ====== Remove the the custom table ==============================
-      }
 
+      }
    }
 }
 
@@ -701,27 +702,35 @@ int main(int argc, char** argv)
          vm["interface"].as<std::vector<std::string>>();
       for(auto iterator = interfaceVector.begin(); iterator != interfaceVector.end(); iterator++) {
          const std::string& interfaceConfiguration = *iterator;
-         const int delimiter = interfaceConfiguration.find(':');
-         if(delimiter == -1) {
-            std::cerr << "ERROR: Bad interface configuration " << interfaceConfiguration << "!\n";
-            return 1;
+         if(interfaceConfiguration != "") {
+            const int delimiter = interfaceConfiguration.find(':');
+            if(delimiter == -1) {
+                std::cerr << "ERROR: Bad interface configuration " << interfaceConfiguration << "!\n";
+                return 1;
+            }
+            const std::string interface = interfaceConfiguration.substr(0, delimiter);
+            const std::string table     = interfaceConfiguration.substr(delimiter + 1,
+                                                                        interfaceConfiguration.size());
+            unsigned int tableID = atol(table.c_str());
+            if( (tableID < 1000) || (tableID >= 30000) ) {
+                std::cerr << "ERROR: Bad table ID in interface configuration "
+                          << interfaceConfiguration << "!\n";
+                return 1;
+            }
+            InterfaceMap.insert(std::pair<std::string, unsigned int>(interface, tableID));
          }
-         const std::string interface = interfaceConfiguration.substr(0, delimiter);
-         const std::string table     = interfaceConfiguration.substr(delimiter + 1,
-                                                                     interfaceConfiguration.size());
-         unsigned int tableID = atol(table.c_str());
-         if( (tableID < 1000) || (tableID >= 30000) ) {
-            std::cerr << "ERROR: Bad table ID in interface configuration "
-                      << interfaceConfiguration << "!\n";
-            return 1;
-         }
-         InterfaceMap.insert(std::pair<std::string, unsigned int>(interface, tableID));
       }
    }
 
    // ====== Initialize logger ==============================================
    initialiseLogger(logLevel, logColor,
                     (logFile != std::filesystem::path()) ? logFile.string().c_str() : nullptr);
+
+   DMHS_LOG(info) << "Starting DynMHS " << DYNMHS_VERSION << " ...";
+   for(auto iterator = InterfaceMap.begin(); iterator != InterfaceMap.end(); iterator++) {
+      DMHS_LOG(info) << "Mapping: " << iterator->first
+                     << " -> table " << iterator->second;
+   }
 
 
    // ====== Open Netlink socket ============================================
