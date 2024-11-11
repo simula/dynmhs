@@ -1,7 +1,7 @@
-#!/bin/bash -u
+#!/bin/bash -eu
 
 cd ..
-make && \
+make
 sudo ./dynmhs \
    --interface enp0s3:1000 \
    --interface enp0s8:2000 \
