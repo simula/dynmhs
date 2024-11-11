@@ -241,9 +241,16 @@ static void handleAddressEvent(const nlmsghdr* message)
          request->frh.table          = RT_TABLE_UNSPEC;
 
          // ------ "from" parameter: address/prefix -------------------------
-         assure( addattr(&request->header, sizeof(*request), FRA_SRC,
-                         addressPtr, (ifa->ifa_family == AF_INET) ? 4 : 16) == 0 );
-         request->frh.src_len = prefixLength;
+         if(ifa->ifa_family == AF_INET) {
+            assure( addattr(&request->header, sizeof(*request), FRA_SRC,
+                            addressPtr, 4) == 0 );
+            request->frh.src_len = 32;
+         }
+         else {
+            assure( addattr(&request->header, sizeof(*request), FRA_SRC,
+                            addressPtr, 16) == 0 );
+            request->frh.src_len = 128;
+         }
 
          // ------ "priority" parameter -------------------------------------
          assure( addattr(&request->header, sizeof(*request), FRA_PRIORITY,
