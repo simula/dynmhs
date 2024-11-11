@@ -1,0 +1,15 @@
+#!/bin/bash -u
+
+for v in 4 6 ; do
+   for table in 1000 2000 3000 4000 ; do
+      ip -${v} rule flush priority ${table}
+      ip -${v} route flush table ${table}
+   done
+done
+
+for v in 4 6 ; do
+   ip -${v} rule show
+   for table in 1000 2000 3000 4000 ; do
+      ip route show table ${table}
+   done
+done
