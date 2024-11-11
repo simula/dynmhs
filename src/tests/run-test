@@ -2,7 +2,7 @@
 
 cd ..
 make
-sudo ./dynmhs \
+sudo valgrind ./dynmhs \
    --interface enp0s3:1000 \
    --interface enp0s8:2000 \
    --interface enp0s9:3000 \
