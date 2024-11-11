@@ -1,0 +1,24 @@
+#!/bin/bash -u
+
+# ====== Obtain source addresses ============================================
+A=""
+for interface in enp0s3 enp0s8 enp0s9 enp0s10 ; do
+   A="$(ip addr show dev ${interface} | grep "^[ \t]*inet" | awk '{ print $2 }' | sed -e '/^fe80:/d' -e 's#/.*##' | xargs) ${A}"
+done
+A="$(echo "${A}" | xargs -n1 | sort -u)"
+echo "A=$A"
+
+# ====== Build HiPerConTracer parameters ====================================
+S=""
+for src in ${A} ; do
+   if [ "${S}" != "" ] ; then
+      S="${S} "
+   fi
+   S="${S}--source ${src}"
+done
+
+D="-D www.ietf.org"
+
+# ======Run HiPerConTracer ==================================================
+echo ">>> sudo hipercontracer ${S} ${D} -P --pingexpiration 1500"
+sudo hipercontracer ${S} ${D} -P --pingexpiration 1500
