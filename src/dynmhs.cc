@@ -57,9 +57,9 @@ enum DynMHSOperatingMode {
    Operational = 2
 };
 static DynMHSOperatingMode                            Mode                     = Undefined;
-static unsigned int                                   SeqNumber                = 0;
-static unsigned int                                   AckNumber                = 0;
-static unsigned int                                   AwaitedSeqNumber         = 0;
+static uint32_t                                       SeqNumber                = 0;
+static uint32_t                                       AckNumber                = 0;
+static uint32_t                                       AwaitedSeqNumber         = 0;
 static int                                            LastError                = 0;
 static bool                                           WaitingForAcknowlegement = false;
 static std::map<std::string, unsigned int>            InterfaceMap;
@@ -384,7 +384,7 @@ static void handleRouteEvent(const nlmsghdr* message)
       for(auto iterator = InterfaceMap.begin(); iterator != InterfaceMap.end(); iterator++) {
          const unsigned int customTable = iterator->second;
          if(*tablePtr == customTable) {
-            DMHS_LOG(info) << "Removing from table " << customTable << " ...";
+            DMHS_LOG(info) << "Removing route from table " << customTable << " ...";
             updateNecessary = true;
             updateType      = RTM_DELROUTE;
             break;
@@ -454,7 +454,6 @@ static void handleRuleEvent(const nlmsghdr* message)
                          % eventName
                          % *tablePtr
                          % priority;
-
 
 
    // ====== Check whether a removal of the rule is necessary ===============
@@ -546,8 +545,7 @@ static bool sendQueuedRequests(const int sd)
 
 // ###### Read Netlink message ##############################################
 static bool receiveNetlinkMessages(const int  sd,
-                                   const bool nonBlocking = false,
-                                   const bool errorOnly   = false)
+                                   const bool nonBlocking = false)
 {
    // ====== Initialise structures for recvmsg() ============================
    nlmsghdr    buffer[65536 / sizeof(nlmsghdr)];
@@ -578,11 +576,6 @@ static bool receiveNetlinkMessages(const int  sd,
                                   % LastError
                                   % strerror(-LastError);
             WaitingForAcknowlegement = false;
-         }
-
-         // ====== Error-only mode for service shutdown =====================
-         if( (errorOnly) && (header->nlmsg_type != NLMSG_ERROR) ) {
-            continue;
          }
 
          // ====== Handle the different message types =======================
@@ -641,8 +634,7 @@ static bool receiveNetlinkMessages(const int  sd,
 // ###### Wait for Netlink acknowledgement ##################################
 static bool waitForAcknowledgement(const int          sd,
                                    const unsigned int seqNumber,
-                                   const unsigned int timeout,
-                                   const bool         errorOnly = false)
+                                   const unsigned int timeout)
 {
    WaitingForAcknowlegement = true;
    AwaitedSeqNumber         = seqNumber;
@@ -662,7 +654,7 @@ static bool waitForAcknowledgement(const int          sd,
       pfd[0].events = POLLIN;
       const int events = poll((pollfd*)&pfd, 1, ms);
       if(events > 0) {
-         receiveNetlinkMessages(sd, true, errorOnly);
+         receiveNetlinkMessages(sd, true);
       }
    }
 
@@ -724,61 +716,13 @@ void cleanUpDynMHS(int sd)
 {
    Mode = Reset;
 
-#if 0
-   for(auto iterator = InterfaceMap.begin(); iterator != InterfaceMap.end(); iterator++) {
-      const std::string& interfaceName = iterator->first;
-      const unsigned int customTable   = iterator->second;
-
-      DMHS_LOG(info) << "Cleaning up table " << customTable << " ...";
-
-      // ------ Build RTM_DELRULE request -----------------------------------
-      for(unsigned int v = 0; v <= 1; v++) {   // Requests for IPv4 and IPv6
-
-        // ====== Remove the rules leading to the custom table ==============
-         // There may be multiple rules, and only the first one gets deleted!
-         // Therefore: iterate until LastError is set (ENOTFOUND)
-         do {
-            struct _request {
-                nlmsghdr     header;
-                fib_rule_hdr frh;
-                char         buffer[64];
-            } request { };
-            request.header.nlmsg_len   = NLMSG_LENGTH(sizeof(request.frh));
-            request.header.nlmsg_type  = RTM_DELRULE;
-            request.header.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
-            request.header.nlmsg_pid   = 0;  // This field is opaque to netlink.
-            request.header.nlmsg_seq   = ++SeqNumber;
-            request.frh.family         = (v == 0) ? AF_INET : AF_INET6;
-
-            // ------ "priority" parameter -------------------------------------
-            assure( addattr(&request.header, sizeof(request), FRA_PRIORITY,
-                            &customTable, sizeof(uint32_t)) == 0 );
-
-            DMHS_LOG(trace) << "Request seqnum " << SeqNumber;
-            sockaddr_nl sa;
-            memset(&sa, 0, sizeof(sa));
-            sa.nl_family = AF_NETLINK;
-            iovec  iov { &request, request.header.nlmsg_len };
-            msghdr msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
-            if(sendmsg(sd, &msg, 0) < 0) {
-               DMHS_LOG(error) << "sendmsg() failed: " << strerror(errno);
-            }
-            else if(!waitForAcknowledgement(sd, SeqNumber, NETLINK_TIMEOUT, true)) {
-               DMHS_LOG(error) << "Timeout waiting for acknowledgement";
-               break;
-            }
-         } while(LastError == 0);
-      }
-   }
-#endif
-
    // ====== Remove the custom rules ========================================
    DMHS_LOG(info) << "Cleaning up custom rules ...";
    if(!sendSimpleNetlinkRequest(sd, RTM_GETRULE)) {
-      DMHS_LOG(error) << "sendmsg(RTM_GETROUTE) failed: " << strerror(errno);
+      DMHS_LOG(error) << "sendmsg(RTM_GETRULE) failed: " << strerror(errno);
    }
    else if(!waitForAcknowledgement(sd, SeqNumber, NETLINK_TIMEOUT)) {
-      DMHS_LOG(error) << "Timeout waiting for acknowledgement";
+      DMHS_LOG(error) << "No response to RTM_GETRULE request";
    }
    else {
       if(!RequestQueue.empty()) {
@@ -795,7 +739,7 @@ void cleanUpDynMHS(int sd)
       DMHS_LOG(error) << "sendmsg(RTM_GETROUTE) failed: " << strerror(errno);
    }
    else if(!waitForAcknowledgement(sd, SeqNumber, NETLINK_TIMEOUT)) {
-      DMHS_LOG(error) << "Timeout waiting for acknowledgement";
+      DMHS_LOG(error) << "No response to RTM_GETROUTE request";
    }
    else {
       if(!RequestQueue.empty()) {
