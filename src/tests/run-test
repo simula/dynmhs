@@ -9,4 +9,12 @@ sudo ./dynmhs \
    --interface enp0s10:4000 \
    --loglevel 0
 
-ip rule show ; ip -6 rule show
+for v in 4 6 ; do
+   echo "====== IPv${v} ===================================================="
+   echo "Rules:"
+   ip -${v} rule show
+   for table in 1000 2000 3000 4000 ; do
+      echo "------ Table ${table}: ---------------------------------------------"
+      ip -${v} route show table ${table}
+   done
+done
