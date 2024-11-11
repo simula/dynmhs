@@ -48,12 +48,19 @@
 #include "package-version.h"
 
 
-static std::map<std::string, unsigned int>            InterfaceMap;
-static std::queue<std::pair<const nlmsghdr*, size_t>> RequestQueue;
+enum DynMHSOperatingMode {
+   Undefined   = 0,
+   Reset       = 1,
+   Operational = 2
+};
+static DynMHSOperatingMode                            Mode                     = Undefined;
 static unsigned int                                   SeqNumber                = 0;
+static unsigned int                                   AckNumber                = 0;
 static unsigned int                                   AwaitedSeqNumber         = 0;
 static int                                            LastError                = 0;
 static bool                                           WaitingForAcknowlegement = false;
+static std::map<std::string, unsigned int>            InterfaceMap;
+static std::queue<std::pair<const nlmsghdr*, size_t>> RequestQueue;
 
 
 // ###### Arribute helper ###################################################
@@ -102,7 +109,7 @@ static void handleError(const nlmsghdr* message)
 static void handleLinkEvent(const nlmsghdr* message)
 {
    const ifinfomsg* ifinfo = (const ifinfomsg*)NLMSG_DATA(message);
-   int length = message->nlmsg_len - NLMSG_LENGTH(sizeof(*ifinfo));
+   unsigned int     length = message->nlmsg_len - NLMSG_LENGTH(sizeof(*ifinfo));
 
    // ====== Parse attributes ===============================================
    const char* ifName = nullptr;
@@ -137,18 +144,18 @@ static void handleLinkEvent(const nlmsghdr* message)
 // ###### Handle address change event ##########################################
 static void handleAddressEvent(const nlmsghdr* message)
 {
-   const ifaddrmsg* ifa       = (const ifaddrmsg*)NLMSG_DATA(message);
-   const int        ifalength = message->nlmsg_len;
+   const ifaddrmsg*   ifa       = (const ifaddrmsg*)NLMSG_DATA(message);
+   const unsigned int ifalength = message->nlmsg_len;
 
    // ====== Parse attributes ===============================================
-   int                      ifIndex = ifa->ifa_index;
+   const unsigned int       ifIndex = ifa->ifa_index;
    char                     ifNameBuffer[IF_NAMESIZE];
    const char*              ifName;
    boost::asio::ip::address address;
    const char*              addressPtr  = nullptr;
    bool                     isLinkLocal = false;
    const unsigned int       prefixLength = ifa->ifa_prefixlen;
-   int                      length = ifalength - NLMSG_LENGTH(sizeof(*ifa));
+   unsigned int             length = ifalength - NLMSG_LENGTH(sizeof(*ifa));
    for(const rtattr* rta = IFA_RTA(ifa); RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
       switch(rta->rta_type) {
          case IFA_ADDRESS:
@@ -193,12 +200,13 @@ static void handleAddressEvent(const nlmsghdr* message)
                          % ifIndex
                          % address.to_string();
 
-   if( (addressPtr != nullptr) &&
-       (!isLinkLocal) &&
+   // ====== Check whether an update in the custom table is necessary =======
+   if( (Mode == Operational)   &&
+       (addressPtr != nullptr) &&
+       (!isLinkLocal)          &&
        ( (message->nlmsg_type == RTM_NEWADDR) ||
          (message->nlmsg_type == RTM_DELADDR) ) ) {
 
-      // ====== Check whether an update in the custom table is necessary =======
       const auto found = InterfaceMap.find(ifName);
       if(found != InterfaceMap.end()) {
          const uint32_t customTable = found->second;
@@ -249,9 +257,9 @@ static void handleAddressEvent(const nlmsghdr* message)
 // ###### Handle route change event #########################################
 static void handleRouteEvent(const nlmsghdr* message)
 {
-   const int    messageLength = message->nlmsg_len;
-   const rtmsg* rtm           = (const rtmsg*)NLMSG_DATA(message);
-   const int    rtmLength     = message->nlmsg_len;
+   const unsigned int messageLength = message->nlmsg_len;
+   const rtmsg*       rtm           = (const rtmsg*)NLMSG_DATA(message);
+   const unsigned int rtmLength     = message->nlmsg_len;
 
    // ====== Parse attributes ===============================================
    boost::asio::ip::address destination =
@@ -304,66 +312,91 @@ static void handleRouteEvent(const nlmsghdr* message)
    }
    assure(tablePtr != nullptr);
 
-   // ====== Only the "main" table is of interest here ======================
-   if(*tablePtr == RT_TABLE_MAIN) {
-      // ====== Show results ================================================
-      const char* eventName;
-      switch(message->nlmsg_type) {
-         case RTM_NEWROUTE:
-            eventName = "NEW";
-         break;
-         case RTM_DELROUTE:
-            eventName = "DELETE";
-         break;
-         default:
-            eventName = "UNKNOWN";
-         break;
-      }
-      const char* scopeName;
-      switch(rtm->rtm_scope) {
-         case RT_SCOPE_UNIVERSE:
-            scopeName = "universe";
-          break;
-         case RT_SCOPE_LINK:
-            scopeName = "link";
-          break;
-         default:
-            scopeName = "UNKNOWN";
-         break;
-      }
-      DMHS_LOG(debug) << "Route event:"
-                      << boost::format(" event=%s: T=%d D=%s scope=%s %s IF=%s (%d) %s")
-                            % eventName
-                            % *tablePtr
-                            % (destination.to_string() + "/" +
-                                  std::to_string(destinationPrefixLength))
-                            % scopeName
-                            % ((hasGateway == true) ? ("G=" + gateway.to_string()) : "G=---")
-                            % oifName
-                            % oifIndex
-                            % ((metric >= 0) ? std::to_string(metric) : "");
 
-      // ====== Check whether an update in the custom table is necessary ====
+   // ====== Show status =================================================
+   const char* eventName;
+   switch(message->nlmsg_type) {
+      case RTM_NEWROUTE:
+         eventName = "NEW";
+       break;
+      case RTM_DELROUTE:
+         eventName = "DELETE";
+       break;
+      default:
+         eventName = "UNKNOWN";
+       break;
+   }
+   const char* scopeName;
+   switch(rtm->rtm_scope) {
+      case RT_SCOPE_UNIVERSE:
+         scopeName = "universe";
+       break;
+      case RT_SCOPE_LINK:
+         scopeName = "link";
+       break;
+       default:
+         scopeName = "UNKNOWN";
+       break;
+   }
+   DMHS_LOG(debug) << "Route event:"
+                   << boost::format(" event=%s: T=%d D=%s scope=%s %s IF=%s (%d) %s")
+                         % eventName
+                         % *tablePtr
+                         % (destination.to_string() + "/" +
+                              std::to_string(destinationPrefixLength))
+                         % scopeName
+                         % ((hasGateway == true) ? ("G=" + gateway.to_string()) : "G=---")
+                         % oifName
+                         % oifIndex
+                         % ((metric >= 0) ? std::to_string(metric) : "");
+
+   // ====== Check whether an update in the custom table is necessary =======
+   bool     updateNecessary = false;
+   uint16_t updateType;
+   if( (Mode == Operational) &&
+       (*tablePtr == RT_TABLE_MAIN) &&
+       ( (message->nlmsg_type == RTM_NEWROUTE) ||
+         (message->nlmsg_type == RTM_DELROUTE) ) ) {
+      // ------ Find custom table in the InterfaceMap -----------------------
       const auto found = InterfaceMap.find(oifName);
       if(found != InterfaceMap.end()) {
-         const unsigned int customTable = found->second;
-         DMHS_LOG(info) << "Update of table " << customTable << " is necessary ...";
-
-         // ------ Update ---------------------------------------------------
-         *tablePtr = customTable;
-
-         // ------ Copy the message and enqueue it for sending it later -----
-         nlmsghdr* updateMessage = (nlmsghdr*)new char[messageLength];
-         assure(updateMessage != nullptr);
-         memcpy(updateMessage, message, messageLength);
-
-         updateMessage->nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL | NLM_F_ACK;
-         updateMessage->nlmsg_seq   = ++SeqNumber;
-
-         RequestQueue.push(std::pair<const nlmsghdr*, size_t>(
-            updateMessage, messageLength));
-         DMHS_LOG(trace) << "Request seqnum " << SeqNumber;
+          const unsigned int customTable = found->second;
+          DMHS_LOG(info) << "Update of table " << customTable << " is necessary ...";
+         updateNecessary = true;
+         updateType      = message->nlmsg_type;
+         *tablePtr       = customTable;   // <<-- clone entry into custom table
       }
+   }
+   else if( (Mode == Reset) &&
+            (*tablePtr != RT_TABLE_MAIN) ) {
+      // ------ Check if entry belongs to custom table in the InterfaceMap --
+      for(auto iterator = InterfaceMap.begin(); iterator != InterfaceMap.end(); iterator++) {
+         const unsigned int customTable = iterator->second;
+         if(*tablePtr == customTable) {
+            DMHS_LOG(info) << "Removing from table " << customTable << " ...";
+            updateNecessary = true;
+            updateType      = RTM_DELROUTE;
+            break;
+         }
+      }
+   }
+
+   // ====== Apply update ===================================================
+   if(updateNecessary) {
+      // ------ Copy the message and enqueue it for sending it later -----
+      nlmsghdr* updateMessage = (nlmsghdr*)new char[messageLength];
+      assure(updateMessage != nullptr);
+      memcpy(updateMessage, message, messageLength);
+
+      updateMessage->nlmsg_type  = updateType;
+      updateMessage->nlmsg_flags = (updateType == RTM_NEWROUTE) ?
+         NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL | NLM_F_ACK :
+         NLM_F_REQUEST | NLM_F_ACK;
+      updateMessage->nlmsg_seq   = ++SeqNumber;
+
+      RequestQueue.push(std::pair<const nlmsghdr*, size_t>(
+         updateMessage, messageLength));
+      DMHS_LOG(trace) << "Request seqnum " << SeqNumber;
    }
 }
 
@@ -546,6 +579,8 @@ static bool waitForAcknowledgement(const int          sd,
 // ###### Initialise DynMHS #################################################
 bool initialiseDynMHS(int sd)
 {
+   Mode = Operational;
+
    // ====== Request and process links ======================================
    if(!sendSimpleNetlinkRequest(sd, RTM_GETLINK)) {
       DMHS_LOG(error) << "sendmsg(RTM_GETLINK) failed: " << strerror(errno);
@@ -583,6 +618,8 @@ bool initialiseDynMHS(int sd)
 // ###### Clean up DynMHS ###################################################
 void cleanUpDynMHS(int sd)
 {
+   Mode = Reset;
+
    for(auto iterator = InterfaceMap.begin(); iterator != InterfaceMap.end(); iterator++) {
       const std::string& interfaceName = iterator->first;
       const unsigned int customTable   = iterator->second;
@@ -619,16 +656,28 @@ void cleanUpDynMHS(int sd)
             iovec  iov { &request, request.header.nlmsg_len };
             msghdr msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
             if(sendmsg(sd, &msg, 0) < 0) {
-                DMHS_LOG(error) << "sendmsg() failed: " << strerror(errno);
+               DMHS_LOG(error) << "sendmsg() failed: " << strerror(errno);
             }
-            if(!waitForAcknowledgement(sd, SeqNumber, 5000, true)) {
-                DMHS_LOG(error) << "Timeout waiting for acknowledgement";
-                break;
+            else if(!waitForAcknowledgement(sd, SeqNumber, 5000, true)) {
+               DMHS_LOG(error) << "Timeout waiting for acknowledgement";
+               break;
             }
          } while(LastError == 0);
+      }
+   }
 
-         // ====== Remove the the custom table ==============================
-
+   // ====== Remove the the custom tables ===================================
+   DMHS_LOG(info) << "Cleaning up custom tables ...";
+   if(!sendSimpleNetlinkRequest(sd, RTM_GETROUTE)) {
+      DMHS_LOG(error) << "sendmsg(RTM_GETROUTE) failed: " << strerror(errno);
+   }
+   else if(!waitForAcknowledgement(sd, SeqNumber, 5000)) {
+      DMHS_LOG(error) << "Timeout waiting for acknowledgement";
+   }
+   else {
+      sendQueuedRequests(sd);
+      if(!waitForAcknowledgement(sd, SeqNumber, 5000)) {
+         DMHS_LOG(error) << "Timeout waiting for acknowledgement";
       }
    }
 }
@@ -771,6 +820,7 @@ int main(int argc, char** argv)
    if(!sendQueuedRequests(sd)) {
       return 1;
    }
+   Mode = Operational;
 
 
    // ====== Signal handling ================================================
