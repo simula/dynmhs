@@ -43,8 +43,11 @@ _dynmhs()
       # Manual initialization for older bash completion versions:
       COMPREPLY=()
       cur="${COMP_WORDS[COMP_CWORD]}"
+      # shellcheck disable=SC2034
       prev="${COMP_WORDS[COMP_CWORD-1]}"
-      words="${COMP_WORDS}"
+      # shellcheck disable=SC2034,SC2124
+      words="${COMP_WORDS[@]}"
+      # shellcheck disable=SC2034
       cword="${COMP_CWORD}"
    fi
 
@@ -62,12 +65,14 @@ _dynmhs()
          ;;
       # ====== Special case: on/off ======================================
       -Z | --logcolor)
-         COMPREPLY=($(compgen -W "on off" --  "${cur}"))
+         # shellcheck disable=SC2207
+         COMPREPLY=( $(compgen -W "on off" --  "${cur}") )
          return
          ;;
       # ====== Special case: interface ===================================
       -I | --interface)
-         COMPREPLY=($(compgen -W "$(ip addr show | grep -E "^[0-9]+" | cut -d':' -f2)" --  "${cur}"))
+         # shellcheck disable=SC2207
+         COMPREPLY=( $(compgen -W "$(ip addr show | grep -E "^[0-9]+" | cut -d':' -f2)" --  "${cur}") )
          return
          ;;
    esac
@@ -85,6 +90,7 @@ _dynmhs()
 -I
 --interface
 "
+   # shellcheck disable=SC2207
    COMPREPLY=( $( compgen -W "${opts}" -- "${cur}" ) )
    return 0
 }
