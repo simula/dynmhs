@@ -1,0 +1,20 @@
+#!/bin/bash -eu
+
+cd ..
+make
+sudo valgrind ./dynmhs \
+   --interface enp0s3:1000 \
+   --interface enp0s8:2000 \
+   --interface enp0s9:3000 \
+   --interface enp0s10:4000 \
+   --loglevel 0
+
+for v in 4 6 ; do
+   echo "====== IPv${v} ===================================================="
+   echo "Rules:"
+   ip -${v} rule show
+   for table in 1000 2000 3000 4000 ; do
+      echo "------ Table ${table}: ---------------------------------------------"
+      ip -${v} route show table ${table}
+   done
+done

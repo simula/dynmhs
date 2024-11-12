@@ -48,12 +48,22 @@
 #include "package-version.h"
 
 
-static std::map<std::string, unsigned int>            InterfaceMap;
-static std::queue<std::pair<const nlmsghdr*, size_t>> RequestQueue;
-static unsigned int                                   SeqNumber                = 0;
-static unsigned int                                   AwaitedSeqNumber         = 0;
+
+#define NETLINK_TIMEOUT 5000   // 5000 ms
+
+enum DynMHSOperatingMode {
+   Undefined   = 0,
+   Reset       = 1,
+   Operational = 2
+};
+static DynMHSOperatingMode                            Mode                     = Undefined;
+static uint32_t                                       SeqNumber                = 1000000000;
+static uint32_t                                       AwaitedSeqNumber         = 0;
 static int                                            LastError                = 0;
 static bool                                           WaitingForAcknowlegement = false;
+static std::map<std::string, unsigned int>            InterfaceMap;
+static std::queue<std::pair<const nlmsghdr*, size_t>> RequestQueue;
+
 
 
 // ###### Arribute helper ###################################################
@@ -68,7 +78,7 @@ static int addattr(nlmsghdr* message, const unsigned int maxlen,
    assure((unsigned int)NLMSG_ALIGN(message->nlmsg_len) + (unsigned int)RTA_ALIGN(len) <= maxlen);
    rta = NLMSG_TAIL(message);
    rta->rta_type = type;
-   rta->rta_len = len;
+   rta->rta_len  = len;
    if(alen) {
       memcpy(RTA_DATA(rta), data, alen);
    }
@@ -101,33 +111,30 @@ static void handleError(const nlmsghdr* message)
 // ###### Handle link change event ##########################################
 static void handleLinkEvent(const nlmsghdr* message)
 {
+   // ====== Initialise =====================================================
    const ifinfomsg* ifinfo = (const ifinfomsg*)NLMSG_DATA(message);
-   int length = message->nlmsg_len - NLMSG_LENGTH(sizeof(*ifinfo));
+   unsigned int     length = message->nlmsg_len - NLMSG_LENGTH(sizeof(*ifinfo));
+   const char*      eventName;
+   if(message->nlmsg_type != RTM_NEWLINK) {
+      eventName = "RTM_NEWLINK";
+   }
+   else if(message->nlmsg_type != RTM_DELLINK) {
+      eventName = "RTM_DELLINK";
+   }
+   else {
+      return;
+   }
 
    // ====== Parse attributes ===============================================
    const char* ifName = nullptr;
-   for(const rtattr* rta = IFLA_RTA(ifinfo);
-       RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
+   for(const rtattr* rta = IFLA_RTA(ifinfo); RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
       if(rta->rta_type == IFLA_IFNAME) {
          ifName = (const char*)RTA_DATA(rta);
       }
    }
 
-   // ====== Show results ===================================================
-   const char* eventName;
-   switch(message->nlmsg_type) {
-      case RTM_NEWLINK:
-         eventName = "NEW";
-       break;
-      case RTM_DELLINK:
-         eventName = "DELETE";
-       break;
-      default:
-         eventName = "UNKNOWN";
-       break;
-   }
-   DMHS_LOG(debug) << "Link event:"
-                   << boost::format(" event=%s ifindex=%d ifname=%s")
+   // ====== Show status ====================================================
+   DMHS_LOG(debug) << boost::format("Link event: event=%s ifindex=%d ifname=%s")
                          % eventName
                          % ifinfo->ifi_index
                          % ((ifName != nullptr) ? ifName : "UNKNOWN?!");
@@ -137,18 +144,29 @@ static void handleLinkEvent(const nlmsghdr* message)
 // ###### Handle address change event ##########################################
 static void handleAddressEvent(const nlmsghdr* message)
 {
-   const ifaddrmsg* ifa       = (const ifaddrmsg*)NLMSG_DATA(message);
-   const int        ifalength = message->nlmsg_len;
+   // ====== Initialise =====================================================
+   const ifaddrmsg*   ifa       = (const ifaddrmsg*)NLMSG_DATA(message);
+   const unsigned int ifalength = message->nlmsg_len;
+   const char*        eventName;
+   if(message->nlmsg_type != RTM_NEWADDR) {
+      eventName = "RTM_NEWADDR";
+   }
+   else if(message->nlmsg_type != RTM_DELADDR) {
+      eventName = "RTM_DELADDR";
+   }
+   else {
+      return;
+   }
 
    // ====== Parse attributes ===============================================
-   int                      ifIndex = ifa->ifa_index;
+   const unsigned int       ifIndex = ifa->ifa_index;
    char                     ifNameBuffer[IF_NAMESIZE];
    const char*              ifName;
    boost::asio::ip::address address;
    const char*              addressPtr  = nullptr;
    bool                     isLinkLocal = false;
    const unsigned int       prefixLength = ifa->ifa_prefixlen;
-   int                      length = ifalength - NLMSG_LENGTH(sizeof(*ifa));
+   unsigned int             length = ifalength - NLMSG_LENGTH(sizeof(*ifa));
    for(const rtattr* rta = IFA_RTA(ifa); RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
       switch(rta->rta_type) {
          case IFA_ADDRESS:
@@ -173,36 +191,29 @@ static void handleAddressEvent(const nlmsghdr* message)
       ifName = "UNKNOWN";
    }
 
-   // ====== Show results ===================================================
-   const char* eventName;
-   switch(message->nlmsg_type) {
-      case RTM_NEWADDR:
-         eventName = "NEW";
-       break;
-      case RTM_DELADDR:
-         eventName = "DELETE";
-       break;
-      default:
-         eventName = "UNKNOWN";
-       break;
-   }
-   DMHS_LOG(debug) << "Address event:"
-                   << boost::format(" event=%s IF=%s (%d) address=%s")
+
+   // ====== Show status ====================================================
+   DMHS_LOG(trace) << boost::format("Address event: event=%s if=%s (%d) address=%s")
                          % eventName
                          % ifName
                          % ifIndex
                          % address.to_string();
 
-   if( (addressPtr != nullptr) &&
-       (!isLinkLocal) &&
-       ( (message->nlmsg_type == RTM_NEWADDR) ||
-         (message->nlmsg_type == RTM_DELADDR) ) ) {
 
-      // ====== Check whether an update in the custom table is necessary =======
+   // ====== Check whether an update in the custom table is necessary =======
+   /* In Operational mode:
+    * If there is an address change on an interface with custom table:
+    * Update the rule pointing from the address to the custom table
+    * */
+   if( (Mode == Operational)   &&
+       (addressPtr != nullptr) &&
+       (!isLinkLocal) ) {
+
+      // ------ Check whether interface has a custom table ------------------
       const auto found = InterfaceMap.find(ifName);
       if(found != InterfaceMap.end()) {
          const uint32_t customTable = found->second;
-         DMHS_LOG(info) << "Update of rules for table " << customTable << " is necessary ...";
+         DMHS_LOG(debug) << "Update of rule for table " << customTable << " is necessary ...";
 
          // ------ Build RTM_NEWRULE/RTM_DELRULE request --------------------
          struct _request {
@@ -215,9 +226,14 @@ static void handleAddressEvent(const nlmsghdr* message)
          memset(request, 0, sizeof(*request));
 
          request->header.nlmsg_len   = NLMSG_LENGTH(sizeof(request->frh));
-         request->header.nlmsg_type  = (message->nlmsg_type == RTM_NEWADDR) ?
-                                          RTM_NEWRULE : RTM_DELRULE;
-         request->header.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK;
+         if(message->nlmsg_type == RTM_NEWADDR) {
+            request->header.nlmsg_type  = RTM_NEWRULE;
+            request->header.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL | NLM_F_ACK;
+         }
+         else {
+            request->header.nlmsg_type  = RTM_DELRULE;
+            request->header.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+         }
          request->header.nlmsg_pid   = 0;  // This field is opaque to netlink.
          request->header.nlmsg_seq   = ++SeqNumber;
          request->frh.family         = ifa->ifa_family;
@@ -225,9 +241,16 @@ static void handleAddressEvent(const nlmsghdr* message)
          request->frh.table          = RT_TABLE_UNSPEC;
 
          // ------ "from" parameter: address/prefix -------------------------
-         assure( addattr(&request->header, sizeof(*request), FRA_SRC,
-                         addressPtr, (ifa->ifa_family == AF_INET) ? 4 : 16) == 0 );
-         request->frh.src_len = prefixLength;
+         if(ifa->ifa_family == AF_INET) {
+            assure( addattr(&request->header, sizeof(*request), FRA_SRC,
+                            addressPtr, 4) == 0 );
+            request->frh.src_len = 32;
+         }
+         else {
+            assure( addattr(&request->header, sizeof(*request), FRA_SRC,
+                            addressPtr, 16) == 0 );
+            request->frh.src_len = 128;
+         }
 
          // ------ "priority" parameter -------------------------------------
          assure( addattr(&request->header, sizeof(*request), FRA_PRIORITY,
@@ -249,9 +272,20 @@ static void handleAddressEvent(const nlmsghdr* message)
 // ###### Handle route change event #########################################
 static void handleRouteEvent(const nlmsghdr* message)
 {
-   const int    messageLength = message->nlmsg_len;
-   const rtmsg* rtm           = (const rtmsg*)NLMSG_DATA(message);
-   const int    rtmLength     = message->nlmsg_len;
+   // ====== Initialise =====================================================
+   const unsigned int messageLength = message->nlmsg_len;
+   const rtmsg*       rtm           = (const rtmsg*)NLMSG_DATA(message);
+   const unsigned int rtmLength     = message->nlmsg_len;
+   const char*        eventName;
+   if(message->nlmsg_type != RTM_NEWROUTE) {
+      eventName = "RTM_NEWROUTE";
+   }
+   else if(message->nlmsg_type != RTM_DELROUTE) {
+      eventName = "RTM_DELROUTE";
+   }
+   else {
+      return;
+   }
 
    // ====== Parse attributes ===============================================
    boost::asio::ip::address destination =
@@ -261,7 +295,7 @@ static void handleRouteEvent(const nlmsghdr* message)
    const unsigned int       destinationPrefixLength = rtm->rtm_dst_len;
    boost::asio::ip::address gateway;
    bool                     hasGateway = false;
-   int*                     tablePtr   = nullptr;
+   unsigned int*            tablePtr   = nullptr;
    int                      metric     = -1;
    int                      oifIndex   = -1;
    char                     oifNameBuffer[IF_NAMESIZE];
@@ -286,7 +320,7 @@ static void handleRouteEvent(const nlmsghdr* message)
             }
           break;
          case RTA_TABLE:
-            tablePtr = (int*)RTA_DATA(rta);
+            tablePtr = (unsigned int*)RTA_DATA(rta);
           break;
          case RTA_METRICS:
             metric = *(int*)RTA_DATA(rta);
@@ -304,96 +338,184 @@ static void handleRouteEvent(const nlmsghdr* message)
    }
    assure(tablePtr != nullptr);
 
-   // ====== Only the "main" table is of interest here ======================
-   if(*tablePtr == RT_TABLE_MAIN) {
-      // ====== Show results ================================================
-      const char* eventName;
-      switch(message->nlmsg_type) {
-         case RTM_NEWROUTE:
-            eventName = "NEW";
-         break;
-         case RTM_DELROUTE:
-            eventName = "DELETE";
-         break;
-         default:
-            eventName = "UNKNOWN";
-         break;
-      }
-      const char* scopeName;
-      switch(rtm->rtm_scope) {
-         case RT_SCOPE_UNIVERSE:
-            scopeName = "universe";
-          break;
-         case RT_SCOPE_LINK:
-            scopeName = "link";
-          break;
-         default:
-            scopeName = "UNKNOWN";
-         break;
-      }
-      DMHS_LOG(debug) << "Route event:"
-                      << boost::format(" event=%s: T=%d D=%s scope=%s %s IF=%s (%d) %s")
-                            % eventName
-                            % *tablePtr
-                            % (destination.to_string() + "/" +
-                                  std::to_string(destinationPrefixLength))
-                            % scopeName
-                            % ((hasGateway == true) ? ("G=" + gateway.to_string()) : "G=---")
-                            % oifName
-                            % oifIndex
-                            % ((metric >= 0) ? std::to_string(metric) : "");
 
-      // ====== Check whether an update in the custom table is necessary ====
+   // ====== Show status =================================================
+   const char* scopeName;
+   switch(rtm->rtm_scope) {
+      case RT_SCOPE_UNIVERSE:
+         scopeName = "universe";
+       break;
+      case RT_SCOPE_LINK:
+         scopeName = "link";
+       break;
+       default:
+         scopeName = "UNKNOWN";
+       break;
+   }
+   DMHS_LOG(trace) << boost::format("Route event: event=%s: table=%d destination=%s scope=%s %s if=%s (%d) %s")
+                         % eventName
+                         % *tablePtr
+                         % (destination.to_string() + "/" +
+                              std::to_string(destinationPrefixLength))
+                         % scopeName
+                         % ((hasGateway == true) ? ("G=" + gateway.to_string()) : "G=---")
+                         % oifName
+                         % oifIndex
+                         % ((metric >= 0) ? std::to_string(metric) : "");
+
+
+   // ====== Check whether an update in the custom table is necessary =======
+   bool     updateNecessary = false;
+   uint16_t updateType;
+   if( (Mode == Operational) &&
+       (*tablePtr == RT_TABLE_MAIN) &&
+       ( (message->nlmsg_type == RTM_NEWROUTE) ||
+         (message->nlmsg_type == RTM_DELROUTE) ) ) {
+      /* In Operational mode, synchronise a routing change from the main table
+       * into the custom table. Only changes in the main table are of interest
+       * here! */
+      // ------ Find custom table in the InterfaceMap -----------------------
       const auto found = InterfaceMap.find(oifName);
       if(found != InterfaceMap.end()) {
-         const unsigned int customTable = found->second;
-         DMHS_LOG(info) << "Update of table " << customTable << " is necessary ...";
-
-         // ------ Update ---------------------------------------------------
-         *tablePtr = customTable;
-
-         // ------ Copy the message and enqueue it for sending it later -----
-         nlmsghdr* updateMessage = (nlmsghdr*)new char[messageLength];
-         assure(updateMessage != nullptr);
-         memcpy(updateMessage, message, messageLength);
-
-         updateMessage->nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL | NLM_F_ACK;
-         updateMessage->nlmsg_seq   = ++SeqNumber;
-
-         RequestQueue.push(std::pair<const nlmsghdr*, size_t>(
-            updateMessage, messageLength));
-         DMHS_LOG(trace) << "Request seqnum " << SeqNumber;
+          const unsigned int customTable = found->second;
+         DMHS_LOG(debug) << "Update of route in table " << customTable << " is necessary ...";
+         updateNecessary = true;
+         updateType      = message->nlmsg_type;
+         *tablePtr       = customTable;   // <<-- clone entry into custom table
       }
+   }
+   else if( (Mode == Reset) &&
+            (*tablePtr != RT_TABLE_MAIN) ) {
+      /* In Reset mode, delete all routing table entries in the custom tables.
+       * Here, only the custom tables are of interest! */
+      // ------ Check if entry belongs to custom table in the InterfaceMap --
+      for(auto iterator = InterfaceMap.begin(); iterator != InterfaceMap.end(); iterator++) {
+         const unsigned int customTable = iterator->second;
+         if(*tablePtr == customTable) {
+            DMHS_LOG(trace) << "Removing route from table " << customTable << " ...";
+            updateNecessary = true;
+            updateType      = RTM_DELROUTE;
+            break;
+         }
+      }
+   }
+
+   // ====== Apply update ===================================================
+   if(updateNecessary) {
+      // ------ Copy the message and enqueue it for sending it later -----
+      nlmsghdr* updateMessage = (nlmsghdr*)new char[messageLength];
+      assure(updateMessage != nullptr);
+      memcpy(updateMessage, message, messageLength);
+
+      updateMessage->nlmsg_type  = updateType;
+      updateMessage->nlmsg_flags = (updateType == RTM_NEWROUTE) ?
+         NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL | NLM_F_ACK :
+         NLM_F_REQUEST | NLM_F_ACK;
+      updateMessage->nlmsg_seq   = ++SeqNumber;
+
+      RequestQueue.push(std::pair<const nlmsghdr*, size_t>(
+         updateMessage, messageLength));
+      DMHS_LOG(trace) << "Request seqnum " << SeqNumber;
+   }
+}
+
+
+// ###### Handle rule change event ##########################################
+static void handleRuleEvent(const nlmsghdr* message)
+{
+   // ====== Initialise =====================================================
+   const unsigned int  messageLength = message->nlmsg_len;
+   const fib_rule_hdr* frh           = (const fib_rule_hdr*)NLMSG_DATA(message);
+   const unsigned int  frhLength     = message->nlmsg_len;
+   const char*         eventName;
+   if(message->nlmsg_type != RTM_NEWRULE) {
+      eventName = "RTM_NEWRULE";
+   }
+   else if(message->nlmsg_type != RTM_DELRULE) {
+      eventName = "RTM_DELRULE";
+   }
+   else {
+      return;
+   }
+
+   // ====== Parse attributes ===============================================
+   unsigned int* tablePtr   = nullptr;
+   unsigned int  priority   = 0;
+   unsigned int  length     = frhLength - NLMSG_LENGTH(sizeof(*frh));
+   for(const rtattr* rta = (const rtattr*)((char*)frh + NLMSG_ALIGN(sizeof(fib_rule_hdr)));
+       RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
+      switch(rta->rta_type) {
+         case FRA_TABLE:
+            tablePtr = (unsigned int*)RTA_DATA(rta);
+          break;
+         case FRA_PRIORITY:
+            priority = *(unsigned int*)RTA_DATA(rta);
+          break;
+      }
+   }
+   assure(tablePtr != nullptr);
+
+
+   // ====== Show status ====================================================
+   DMHS_LOG(trace) << boost::format("Rule event: event=%s: table=%u priority=%u")
+                         % eventName
+                         % *tablePtr
+                         % priority;
+
+
+   // ====== Check whether a removal of the rule is necessary ===============
+   bool removalNecessary = false;
+   if( (Mode == Reset) && (tablePtr != nullptr) ) {
+      // ------ Check if entry belongs to custom table in the InterfaceMap --
+      for(auto iterator = InterfaceMap.begin(); iterator != InterfaceMap.end(); iterator++) {
+         const unsigned int customTable = iterator->second;
+         if(*tablePtr == customTable) {
+            DMHS_LOG(info) << "Removing rule for table " << customTable << " ...";
+            removalNecessary = true;
+            break;
+         }
+      }
+   }
+
+   // ====== Apply removal ==================================================
+   if(removalNecessary) {
+      // ------ Copy the message and enqueue it for sending it later -----
+      nlmsghdr* updateMessage = (nlmsghdr*)new char[messageLength];
+      assure(updateMessage != nullptr);
+      memcpy(updateMessage, message, messageLength);
+
+      updateMessage->nlmsg_type  = RTM_DELRULE;
+      updateMessage->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+      updateMessage->nlmsg_seq   = ++SeqNumber;
+
+      RequestQueue.push(std::pair<const nlmsghdr*, size_t>(
+         updateMessage, messageLength));
+      DMHS_LOG(trace) << "Request seqnum " << SeqNumber;
    }
 }
 
 
 // ###### Send simple Netlink request #######################################
-static bool sendSimpleNetlinkRequest(const int sd, const int type)
+static void queueSimpleNetlinkRequest(const int type)
 {
    struct _request {
       nlmsghdr header;
       rtgenmsg msg;
    };
-   _request request { };
-   request.header.nlmsg_len   = NLMSG_LENGTH(sizeof(request.msg));
-   request.header.nlmsg_type  = type;
-   request.header.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK;
-   request.header.nlmsg_pid   = 0;  // This field is opaque to netlink.
-   request.header.nlmsg_seq   = ++SeqNumber;
-   request.msg.rtgen_family   = AF_UNSPEC;
+   _request* request = (_request*)new char[sizeof(*request)];
+   assure(request != nullptr);
+   memset(request, 0, sizeof(*request));
 
-   sockaddr_nl sa;
-   memset(&sa, 0, sizeof(sa));
-   sa.nl_family = AF_NETLINK;
+   request->header.nlmsg_len   = NLMSG_LENGTH(sizeof(request->msg));
+   request->header.nlmsg_type  = type;
+   request->header.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK;
+   request->header.nlmsg_pid   = 0;  // This field is opaque to netlink.
+   request->header.nlmsg_seq   = ++SeqNumber;
+   request->msg.rtgen_family   = AF_UNSPEC;
 
+   RequestQueue.push(std::pair<const nlmsghdr*, size_t>(
+      &request->header, request->header.nlmsg_len));
    DMHS_LOG(trace) << "Request seqnum " << SeqNumber;
-   iovec  iov { &request, request.header.nlmsg_len };
-   msghdr msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
-   if(sendmsg(sd, &msg, 0) < 0) {
-      return false;
-   }
-   return true;
 }
 
 
@@ -405,8 +527,7 @@ static bool sendQueuedRequests(const int sd)
       std::pair<const nlmsghdr*, size_t>& command = RequestQueue.front();
       const nlmsghdr* message       = command.first;
       const size_t    messageLength = command.second;
-      sockaddr_nl sa;
-      memset(&sa, 0, sizeof(sa));
+      sockaddr_nl sa { };
       sa.nl_family = AF_NETLINK;
       const iovec  iov { (void*)message, messageLength };
       const msghdr msg { &sa, sizeof(sa), (iovec*)&iov, 1, nullptr, 0, 0 };
@@ -425,8 +546,7 @@ static bool sendQueuedRequests(const int sd)
 
 // ###### Read Netlink message ##############################################
 static bool receiveNetlinkMessages(const int  sd,
-                                   const bool nonBlocking = false,
-                                   const bool errorOnly   = false)
+                                   const bool nonBlocking = false)
 {
    // ====== Initialise structures for recvmsg() ============================
    nlmsghdr    buffer[65536 / sizeof(nlmsghdr)];
@@ -446,22 +566,17 @@ static bool receiveNetlinkMessages(const int  sd,
             (header->nlmsg_seq == AwaitedSeqNumber)) {
             if( (header->nlmsg_type == NLMSG_ERROR) &&
                 (header->nlmsg_len >= NLMSG_LENGTH(sizeof(nlmsgerr))) ) {
-              const nlmsgerr* errormsg = (const nlmsgerr*)NLMSG_DATA(header);
-              LastError = errormsg->error;
+               const nlmsgerr* errormsg = (const nlmsgerr*)NLMSG_DATA(header);
+               LastError = errormsg->error;
             }
             else {
                LastError = 0;   // success
             }
-            DMHS_LOG(debug) << boost::format("Got awaited ack for seqnum %u: error %d (%s)")
+            DMHS_LOG(trace) << boost::format("Got awaited ack for seqnum %u: error %d (%s)")
                                   % header->nlmsg_seq
                                   % LastError
                                   % strerror(-LastError);
             WaitingForAcknowlegement = false;
-         }
-
-         // ====== Error-only mode for service shutdown =====================
-         if( (errorOnly) && (header->nlmsg_type != NLMSG_ERROR) ) {
-            continue;
          }
 
          // ====== Handle the different message types =======================
@@ -496,6 +611,12 @@ static bool receiveNetlinkMessages(const int  sd,
                   handleRouteEvent(header);
                }
              break;
+            case RTM_NEWRULE:
+            case RTM_DELRULE:
+               if(header->nlmsg_len >= NLMSG_LENGTH(sizeof(rtmsg))) {
+                  handleRuleEvent(header);
+               }
+             break;
             default:
                DMHS_LOG(warning) << "Received unexpected header type "
                                  << (int)header->nlmsg_type;
@@ -514,8 +635,7 @@ static bool receiveNetlinkMessages(const int  sd,
 // ###### Wait for Netlink acknowledgement ##################################
 static bool waitForAcknowledgement(const int          sd,
                                    const unsigned int seqNumber,
-                                   const unsigned int timeout,
-                                   const bool         errorOnly = false)
+                                   const unsigned int timeout)
 {
    WaitingForAcknowlegement = true;
    AwaitedSeqNumber         = seqNumber;
@@ -535,7 +655,7 @@ static bool waitForAcknowledgement(const int          sd,
       pfd[0].events = POLLIN;
       const int events = poll((pollfd*)&pfd, 1, ms);
       if(events > 0) {
-         receiveNetlinkMessages(sd, true, errorOnly);
+         receiveNetlinkMessages(sd, true);
       }
    }
 
@@ -544,36 +664,29 @@ static bool waitForAcknowledgement(const int          sd,
 
 
 // ###### Initialise DynMHS #################################################
-bool initialiseDynMHS(int sd)
+struct SimpleRequest {
+   int         RequestType;
+   const char* RequestName;
+};
+static bool initialiseDynMHS(int sd)
 {
-   // ====== Request and process links ======================================
-   if(!sendSimpleNetlinkRequest(sd, RTM_GETLINK)) {
-      DMHS_LOG(error) << "sendmsg(RTM_GETLINK) failed: " << strerror(errno);
-      return false;
-   }
-   if(!waitForAcknowledgement(sd, SeqNumber, 5000)) {
-      DMHS_LOG(error) << "No response to RTM_GETLINK request";
-      return false;
-   }
+   static const SimpleRequest InitRequests[] = {
+    { RTM_GETLINK,  "RTM_GETLINK"  },
+    { RTM_GETADDR,  "RTM_GETADDR"  },
+    { RTM_GETROUTE, "RTM_GETROUTE" },
+    { RTM_GETRULE,  "RTM_GETRULE"  }
+  };
 
-   // ====== Request and process addresses ==================================
-   if(!sendSimpleNetlinkRequest(sd, RTM_GETADDR)) {
-      DMHS_LOG(error) << "sendmsg(RTM_GETADDR) failed: " << strerror(errno);
-      return false;
-   }
-   if(!waitForAcknowledgement(sd, SeqNumber, 5000)) {
-      DMHS_LOG(error) << "No response to RTM_GETADDR request";
-      return false;
-   }
+   Mode = Operational;
 
-   // ====== Request and process routes =====================================
-   if(!sendSimpleNetlinkRequest(sd, RTM_GETROUTE)) {
-      DMHS_LOG(error) << "sendmsg(RTM_GETROUTE) failed: " << strerror(errno);
-      return false;
-   }
-   if(!waitForAcknowledgement(sd, SeqNumber, 5000)) {
-      DMHS_LOG(error) << "No response to RTM_GETROUTE request";
-      return false;
+   for(unsigned int i = 0; i < sizeof(InitRequests) / sizeof(InitRequests[0]); i++) {
+      DMHS_LOG(debug) << "Making " << InitRequests[i].RequestName << " request ...";
+      queueSimpleNetlinkRequest(InitRequests[i].RequestType);
+      sendQueuedRequests(sd);
+      if(!waitForAcknowledgement(sd, SeqNumber, NETLINK_TIMEOUT)) {
+        DMHS_LOG(error) << "No response to " << InitRequests[i].RequestName << " request";
+        return false;
+      }
    }
 
    return true;
@@ -581,56 +694,46 @@ bool initialiseDynMHS(int sd)
 
 
 // ###### Clean up DynMHS ###################################################
-void cleanUpDynMHS(int sd)
+static bool cleanUpDynMHS(int sd)
 {
-   for(auto iterator = InterfaceMap.begin(); iterator != InterfaceMap.end(); iterator++) {
-      const std::string& interfaceName = iterator->first;
-      const unsigned int customTable   = iterator->second;
+   static const SimpleRequest ShutdownRequests[] = {
+      { RTM_GETRULE,  "RTM_GETRULE"  },
+      { RTM_GETROUTE, "RTM_GETROUTE" }
+   };
 
-      DMHS_LOG(info) << "Cleaning up table " << customTable << " ...";
+   Mode = Reset;
 
-      // ------ Build RTM_DELRULE request -----------------------------------
-      for(unsigned int v = 0; v <= 1; v++) {   // Requests for IPv4 and IPv6
-
-        // ====== Remove the rules leading to the custom table ==============
-         // There may be multiple rules, and only the first one gets deleted!
-         // Therefore: iterate until LastError is set (ENOTFOUND)
-         do {
-            struct _request {
-                nlmsghdr     header;
-                fib_rule_hdr frh;
-                char         buffer[64];
-            } request { };
-            request.header.nlmsg_len   = NLMSG_LENGTH(sizeof(request.frh));
-            request.header.nlmsg_type  = RTM_DELRULE;
-            request.header.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
-            request.header.nlmsg_pid   = 0;  // This field is opaque to netlink.
-            request.header.nlmsg_seq   = ++SeqNumber;
-            request.frh.family         = (v == 0) ? AF_INET : AF_INET6;
-
-            // ------ "priority" parameter -------------------------------------
-            assure( addattr(&request.header, sizeof(request), FRA_PRIORITY,
-                            &customTable, sizeof(uint32_t)) == 0 );
-
-            DMHS_LOG(trace) << "Request seqnum " << SeqNumber;
-            sockaddr_nl sa;
-            memset(&sa, 0, sizeof(sa));
-            sa.nl_family = AF_NETLINK;
-            iovec  iov { &request, request.header.nlmsg_len };
-            msghdr msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
-            if(sendmsg(sd, &msg, 0) < 0) {
-                DMHS_LOG(error) << "sendmsg() failed: " << strerror(errno);
+   // ====== Remove custom rules and tables =================================
+   for(unsigned int i = 0; i < sizeof(ShutdownRequests) / sizeof(ShutdownRequests[0]); i++) {
+      DMHS_LOG(debug) << "Making " << ShutdownRequests[i].RequestName << " request ...";
+      // ------ Request a dump of the rules/tables --------------------------
+      queueSimpleNetlinkRequest(ShutdownRequests[i].RequestType);
+      sendQueuedRequests(sd);
+      if(!waitForAcknowledgement(sd, SeqNumber, NETLINK_TIMEOUT)) {
+         DMHS_LOG(error) << "No response to " << ShutdownRequests[i].RequestName << " request";
+      }
+      // ------ Remove all entries in rules/tables --------------------------
+      if(!RequestQueue.empty()) {
+         // The removal requests are queued now. Send them, then wait until
+         // they are acknowledged.
+         if(!RequestQueue.empty()) {
+            sendQueuedRequests(sd);
+            if(!waitForAcknowledgement(sd, SeqNumber, NETLINK_TIMEOUT)) {
+               DMHS_LOG(error) << "Timeout waiting for acknowledgement";
             }
-            if(!waitForAcknowledgement(sd, SeqNumber, 5000, true)) {
-                DMHS_LOG(error) << "Timeout waiting for acknowledgement";
-                break;
-            }
-         } while(LastError == 0);
-
-         // ====== Remove the the custom table ==============================
-
+         }
       }
    }
+
+   // ====== Clean up the request queue =====================================
+   while(!RequestQueue.empty()) {
+      std::pair<const nlmsghdr*, size_t>& command = RequestQueue.front();
+      const nlmsghdr* message = command.first;
+      delete [] message;
+      RequestQueue.pop();
+   }
+
+   return true;
 }
 
 
@@ -751,8 +854,7 @@ int main(int argc, char** argv)
    }
 
    // ====== Bind Netlink socket ============================================
-   sockaddr_nl sa;
-   memset(&sa, 0, sizeof(sa));
+   sockaddr_nl sa { };
    sa.nl_family = AF_NETLINK;
    sa.nl_groups = RTMGRP_LINK | RTMGRP_NOTIFY |
                   RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR |
@@ -771,6 +873,7 @@ int main(int argc, char** argv)
    if(!sendQueuedRequests(sd)) {
       return 1;
    }
+   Mode = Operational;
 
 
    // ====== Signal handling ================================================
@@ -829,12 +932,6 @@ int main(int argc, char** argv)
       perror("sigprocmask() call failed!");
    }
    cleanUpDynMHS(sd);
-   while(!RequestQueue.empty()) {
-      std::pair<const nlmsghdr*, size_t>& command = RequestQueue.front();
-      const nlmsghdr* message = command.first;
-      delete [] message;
-      RequestQueue.pop();
-   }
    close(sd);
    close(sfd);
 
