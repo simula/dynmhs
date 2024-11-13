@@ -1,3 +1,208 @@
+commit c67b5daa33bb011b66bf1e0ac3a272ff60aa2357
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Wed Nov 13 11:31:25 2024 +0100
+
+    Dependency updates.
+
+commit 1d933b27c3c8891ef6f33527a37a1d7275b4cf37
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Nov 12 22:42:07 2024 +0100
+
+    Added website configuration file.
+
+commit ad95ee2ac2da96981cc0d9e5607fa6e72e5a2986
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Nov 12 22:32:18 2024 +0100
+
+    Added missing file.
+
+commit e285c94ea21c2282aec1814c658a1da3261ef894
+Merge: ebe1184 665de53
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Nov 12 22:30:38 2024 +0100
+
+    Merge branch 'master' of github.com:simula/dynmhs
+
+commit ebe11849ae5494e0737697aa05719ba9d1f3a911
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Nov 12 22:29:09 2024 +0100
+
+    Improved Bash completion.
+
+commit 665de531a2c96bc6226c1d0c5c6b47e29a1c93c2
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Mon Nov 11 16:57:18 2024 +0100
+
+    Rule configuration fix.
+
+commit c42130acc282760b0fd0361de6cc75772a8949d3
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Mon Nov 11 16:49:23 2024 +0100
+
+    Code clean-ups and improvements.
+
+commit ff31f0e1dbf40f740b4398167dc3ae9e77b2f5f1
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Mon Nov 11 16:49:23 2024 +0100
+
+    Updated test script.
+
+commit 88c8895a62f0b484f936df905dcfb0330e649eb1
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Mon Nov 11 16:49:23 2024 +0100
+
+    Some clean-ups.
+
+commit ad11a91e301f7730ee6ce72767148fb7aac1a552
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Mon Nov 11 16:49:23 2024 +0100
+
+    Improved rule clean-up.
+
+commit edd0a281eb21b238db93d6208daa4ba39df77f19
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Mon Nov 11 16:49:23 2024 +0100
+
+    Properly clean up routes on shutdown.
+
+commit 4e667cecba971fb5e1d9af43ffe3d5a06b766335
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Mon Nov 11 16:49:23 2024 +0100
+
+    Updated test script.
+
+commit 60ea5e44cb1fe4a535cfdc04bd317fc90f7928eb
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Mon Nov 11 16:49:23 2024 +0100
+
+    Updated test script.
+
+commit 3798cd0c613bc151d631d84450a23faa21f410aa
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Mon Nov 11 16:49:23 2024 +0100
+
+    Added test script.
+
+commit b2428f6ba476b139dbf53302df59a776581b3e35
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Mon Nov 11 16:49:23 2024 +0100
+
+    Added another test script.
+
+commit 88b42ffdcec90e91c96fabc3c2654d5d634a8605
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Mon Nov 11 16:49:23 2024 +0100
+
+    Added test script.
+
+commit 2577e56ee082976ff1013dd92cf9a2a625bdead9
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sun Nov 10 17:00:43 2024 +0100
+
+    Minor update.
+
+commit 0b1b5dbc143b5fb0b9868f0d257034fe275afbef
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sun Nov 10 16:07:35 2024 +0100
+
+    Updated test configuration.
+
+commit 7f6f61b05b6e8c619a6ff22dc0a1ec8951f1c8e5
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sun Nov 10 16:06:15 2024 +0100
+
+    Working SystemD unit configuration.
+
+commit 072ea96e58545e5725f1a89018612b289169e9a2
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sun Nov 10 15:04:58 2024 +0100
+
+    Some clean-ups.
+
+commit f5ca813d603b366824c4c5c2fd381c09e49c9d1f
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sun Nov 10 15:04:49 2024 +0100
+
+    Properly clean up rules in case of multiple rules per priority.
+
+commit 30f3223e78ecd090253ef64f0dc8a4834ca6b846
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sun Nov 10 15:04:44 2024 +0100
+
+    Improved acknowledgement and timeout handling.
+
+commit 62fa221885922172915191056b32b0b440849846
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sun Nov 10 15:04:37 2024 +0100
+
+    Some progress.
+
+commit 4340d56df1916c71733b4eb451e9f0fa7293e2d1
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sun Nov 10 15:04:32 2024 +0100
+
+    Error decoding fix.
+
+commit cc04c29e23a42f7a3857da569499cd228f7b7c45
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sun Nov 10 15:04:25 2024 +0100
+
+    Added proper shutdown handling.
+
+commit 18b12290bcedca498e15098180606c5a5815a146
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sun Nov 10 15:04:14 2024 +0100
+
+    Added Netplan test configuration.
+
+commit dae01467b8a54295ce01d812063197ab4831cdd9
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 17:45:54 2024 +0100
+
+    Fixed warning.
+
+commit f0c70edd6607e63427b344c27f7fea372350e564
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 17:41:17 2024 +0100
+
+    Another fix.
+
+commit b4feabb8a609c2d251c771ff99e2373fea0e0979
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 17:38:35 2024 +0100
+
+    Minor fixes.
+
+commit 7b9759fb79518f375e81588c6b8e5d6af5e1c3bb
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 17:38:13 2024 +0100
+
+    Updated RPM spec.
+
+commit 842bfd5d9bb5bb23a380897f5b8f00a883367d57
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 17:16:38 2024 +0100
+
+    Documentation updates.
+
+commit 8d18a376bbd062e07785e8b48cf9adf4cedeede8
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 17:15:47 2024 +0100
+
+    Added README.md.
+
+commit f9aeea54ab17c34afd07c486d5ae2041d4a4a3df
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 17:12:57 2024 +0100
+
+    Added RPM spec file.
+
+commit 1ff80a52a6ee55fd0a56bec5622aeae702f27e27
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Nov 8 17:07:01 2024 +0100
+
+    Minor fixes and clean-ups.
+
 commit 0c384a9d79b22c3eee541db1a935c32ca1cc0122
 Author: Thomas Dreibholz <dreibh@simula.no>
 Date:   Fri Nov 8 17:01:35 2024 +0100
