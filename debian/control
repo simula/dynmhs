@@ -23,7 +23,8 @@ Recommends: hipercontracer,
 Suggests: iputils-tracepath,
           ping | iputils-ping,
           td-system-tools,
-          traceroute | inetutils-traceroute
+          traceroute | inetutils-traceroute,
+          tsctp
 Description: Dynamic Multi-Homing Setup (DynMHS)
  DynMHS dynamically sets up IP routing rules, to allow using multiple
  network connections simultaneously. That is, for each relevant network

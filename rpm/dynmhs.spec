@@ -19,6 +19,7 @@ Recommends: hipercontracer
 Recommends: netperfmeter
 Recommends: subnetcalc
 Suggests: td-system-info
+Suggests: tsctp
 
 
 %description
