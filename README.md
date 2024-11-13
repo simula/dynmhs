@@ -66,4 +66,4 @@ The Git repository of the DynMHS sources can be found at https://github.com/simu
 
 ### Current Stable Release
 
-See https://www.nntb.no/~simula/dynmhs/#Download!
+See https://www.nntb.no/~dreibh/dynmhs/#Download!
