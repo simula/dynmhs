@@ -1,3 +1,9 @@
+dynmhs (0.1.0-1ubuntu1) trixie; urgency=medium
+
+  * New upstream release.
+
+ -- Thomas Dreibholz <dreibh@simula.no>  Fri, 13 Dec 2024 21:34:09 +0100
+
 dynmhs (0.0.0-1ubuntu1) noble; urgency=medium
 
   * New upstream release.
