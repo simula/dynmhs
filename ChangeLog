@@ -1,3 +1,81 @@
+commit 053f87b89e81e689be5628100f629a9335eb1d3c
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Feb 28 15:50:20 2025 +0100
+
+    Added ITP.
+
+commit 6c3f45e13f37f680cf79a8d7f2736fafe51a0f2d
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Feb 28 15:48:47 2025 +0100
+
+    Configuration update.
+
+commit 0eb686b7014e15a6fccca2161cb697f1eb692632
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Feb 28 15:41:21 2025 +0100
+
+    Manpage update.
+
+commit 03c176c88dbeb3722c3b648c24b76284058cde12
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Feb 28 15:39:24 2025 +0100
+
+    Packaging updates.
+
+commit a27ed9be82ff816c15d71dda5715561329672e11
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Feb 28 15:34:48 2025 +0100
+
+    Updated CI scripts
+
+commit 80ace2baed77ffe9751428ceec68f571b2cb54b4
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Feb 28 15:33:43 2025 +0100
+
+    Minor updates.
+
+commit 3aa40fd5cef98b31813a875ca1ff364bf0c1d7c6
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Feb 28 15:02:40 2025 +0100
+
+    Further documentation improvements.
+
+commit 96f89d0cbb6791bc9bb8b94efd034e1e990d4d5b
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Feb 28 14:47:02 2025 +0100
+
+    Further documentation improvements.
+
+commit 98413126c36ac50dc75aa81bbf1884a3bb51218b
+Author: NorNet Praesum Presum <nornetpp@dbtest.hipercontracer.nornet>
+Date:   Fri Feb 28 14:37:07 2025 +0100
+
+    Added images.
+
+commit 4115b84539cbbd5bce54b64d3bb592689abdf824
+Author: NorNet Praesum Presum <nornetpp@dbtest.hipercontracer.nornet>
+Date:   Fri Feb 28 14:36:54 2025 +0100
+
+    Updated script.
+
+commit 745674fa2e0b52a9872ab5895463347c46adc759
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Feb 28 14:31:00 2025 +0100
+
+    Added a logo.
+
+commit 53fab3d76c04ad527fa614af5f20081b983d8c60
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Feb 28 14:00:58 2025 +0100
+
+    Improved documentation.
+
+commit 6c7bfd29bc0e5d441dd6013f430a2bd33169beea
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Dec 13 21:34:12 2024 +0100
+
+    New release dynmhs-0.1.0.
+
 commit ddb5f97c880c72ed42c2d237bc508f9461ef236e
 Author: Thomas Dreibholz <dreibh@simula.no>
 Date:   Fri Dec 13 20:53:05 2024 +0100

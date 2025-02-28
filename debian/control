@@ -9,7 +9,7 @@ Build-Depends: cmake,
                debhelper (>= 12),
                libboost-log-dev,
                libboost-program-options-dev
-Standards-Version: 4.7.1
+Standards-Version: 4.7.0
 Rules-Requires-Root: no
 
 Package: dynmhs
