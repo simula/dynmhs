@@ -37,3 +37,5 @@ dia -n -t eps-pango -e "${OUTPUT}.eps" "${INPUT}"
 epstopdf --outfile="${OUTPUT}.pdf.tmp" "${OUTPUT}.eps"
 pdfcrop --hires "${OUTPUT}.pdf.tmp" "${OUTPUT}.pdf"
 rm -f "${OUTPUT}.pdf.tmp"
+
+gm convert "${OUTPUT}.pdf" -density 180x180 -transparent white "${OUTPUT}.png"
