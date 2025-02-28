@@ -29,13 +29,16 @@
 #
 # Contact: dreibh@simula.no
 
-INPUT="Logo-DynMHS.dia"
-OUTPUT="DynMHS"
+for figure in DynMHS ; do
+   # ------ Convert to SVG --------------------------------------------------
+   dia -n -t cairo-svg -e $figure.svg $figure.dia
 
-# Conversion of Dia to EPS and PDF:
-dia -n -t eps-pango -e "${OUTPUT}.eps" "${INPUT}"
-epstopdf --outfile="${OUTPUT}.pdf.tmp" "${OUTPUT}.eps"
-pdfcrop --hires "${OUTPUT}.pdf.tmp" "${OUTPUT}.pdf"
-rm -f "${OUTPUT}.pdf.tmp"
+   # ------ Convert to PDF --------------------------------------------------
+   dia -n -t cairo-pdf -e tmp1.pdf $figure.dia
+   epstopdf --outfile=tmp1.eps tmp1.pdf
+   pdfcrop --hires tmp1.eps $figure.pdf
+   rm -f tmp1.pdf tmp1.eps
 
-gm convert "${OUTPUT}.pdf" -density 180x180 -transparent white "${OUTPUT}.png"
+   # ------ Convert to PNG --------------------------------------------------
+   gm convert -density 300x300 $figure.pdf $figure.png
+done

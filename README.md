@@ -1,5 +1,12 @@
 # Dynamic Multi-Homing Setup&nbsp;(DynMHS)
 
+<p align="center">
+ <a href="https://www.nntb.no/~dreibh/dynmhs/">
+ <img alt="DynMHS Logo" src="src/logo/DynMHS.svg" width="25%" /><br />
+ https://www.nntb.no/~dreibh/dynmhs/
+ </a>
+</p>
+
 ## Description
 
 DynMHS dynamically sets up IP routing rules, to allow using multiple network
