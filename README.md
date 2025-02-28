@@ -9,28 +9,18 @@
 
 ## Description
 
-DynMHS dynamically sets up IP routing rules, to allow using multiple network
-connections simultaneously. That is, for each relevant network interface, a
-separate routing table is created and maintained. For each source address of a
-network interface managed by DynMHS, routing rules are maintained to point to
-the corresponding routing table. Software binding to a specific interface
-address can then use a specific network. In addition, multi-homing-capable
-network protocols like the Multi-Path TCP (MPTCP) or the Stream Control
-Transmission Protocol (SCTP) can take advantage of multi-homing for redundancy
-and load balancing.
-
-See the manpage of dynmhs for details!
+Dynamic Multi-Homing Setup&nbsp;(DynMHS) dynamically sets up IP routing rules, to allow for using multiple network connections simultaneously. That is, for each relevant network interface, a separate routing table is created and maintained. For each source address of a network interface managed by DynMHS, routing rules are maintained to point to the corresponding routing table. Software binding to a specific interface address can then use a specific network. In addition, multi-homing-capable network protocols like the Multi-Path TCP&nbsp;(MPTCP) or the Stream Control Transmission Protocol&nbsp;(SCTP) can take advantage of multi-homing for redundancy and load balancing.
 
 ## Example
 
 ### Scenario
 
-A Linux PC is connected to two NAT networks, configuration via DHCP and IPv6 auto-configuration:
+A Linux PC is connected to two NAT networks, configuration is dynamic via IPv4 DHCP and IPv6 auto-configuration:
 
 * Network #1 on interface enp0s8: 172.30.255.4 / fdff:b44d:605c:0:a00:27ff:fedb:ad69
 * Network #2 on interface enp0s9: 192.168.255.4 / fdc9:dc25:8e35:0:a00:27ff:feaa:bc91
 
-Network settings using [Netplan](https://netplan.io/) (in /etc/netplan/testpc.yaml):
+Network settings for [Netplan](https://netplan.io/) (in /etc/netplan/testpc.yaml):
 ```
 network:
   version: 2
@@ -47,7 +37,7 @@ network:
         route-metric: 300
 ```
 
-IPv4 Routes:
+IPv4 routes:
 ```
 user@testpc:~$ ip -4 route show
 default via 172.30.255.1 dev enp0s8 proto dhcp src 172.30.255.4 metric 200
@@ -57,7 +47,7 @@ default via 192.168.255.1 dev enp0s9 proto dhcp src 192.168.255.4 metric 300
 192.168.255.0/24 dev enp0s9 proto kernel scope link src 192.168.255.4 metric 300
 192.168.255.1 dev enp0s9 proto dhcp scope link src 192.168.255.4 metric 300
 ```
-IPv6 Routes:
+IPv6 routes:
 ```
 user@testpc:~$ ip -6 route show
 fc88:1::/64 dev hostonly101 proto kernel metric 256 linkdown pref medium
@@ -69,9 +59,9 @@ default via fe80::5054:ff:fe12:3500 dev enp0s8 proto ra metric 200 expires 788se
 default via fe80::5054:ff:fe12:3500 dev enp0s9 proto ra metric 300 expires 772sec pref medium
 ```
 
-Note the two default routes with the different metrics (200, 300).
+Note the two default routes with their different metrics (200, 300).
 
-### Why is it not working as expected?
+### Why is this setup not working as expected?
 
 A test with [HiPerConTracer 2.0](https://www.nntb.no/~dreibh/hipercontracer/), running HiPerConTracer Ping to the Google DNS servers from all four source addresses:
 ```
@@ -80,14 +70,14 @@ sudo hipercontracer -P \
    -S fdff:b44d:605c:0:a00:27ff:fedb:ad69 -S fdc9:dc25:8e35:0:a00:27ff:feaa:bc91 \
    -D 8.8.8.8 -D 2001:4860:4860::8888
 ```
-Connectivity is always over the primary interface, i.e.&nbsp;172.30.255.4 and&nbsp;fdff:b44d:605c:0:a00:27ff:fedb:ad69. The reason is: This default route has the lowest metric! Also, simply using the same metric for both routes does not work as well. Then, just the first default route in the routing table would get used.
+Connectivity is always over the primary interface, i.e.&nbsp;172.30.255.4 and&nbsp;fdff:b44d:605c:0:a00:27ff:fedb:ad69. The reason is: This default route has the lowest metric! Also, simply using the same metric for both routes does not fix the issue. Then, just the first default route in the routing table would get used.
 
-To get the setup working as expected, it is necessary to configure separate routing tables for each network, and routing rules to select a routing table according to the *source* IP address:
+To get the setup working as expected, it is necessary to configure separate routing tables for each network, and routing rules to select a routing table according to the *source* IP address. For example:
 
-* Rule 2000: for packets from 172.30.255.4 use routing table #2000.
-* Rule 2000: for packets from fdff:b44d:605c:0:a00:27ff:fedb:ad69 use routing table #2000.
-* Rule 3000: for packets from 192.168.255.4 use routing table #3000.
-* Rule 3000: for packets from fdc9:dc25:8e35:0:a00:27ff:feaa:bc91 use routing table #3000.
+* Rule #2000: for packets from 172.30.255.4 use routing table #2000.
+* Rule #2000: for packets from fdff:b44d:605c:0:a00:27ff:fedb:ad69 use routing table #2000.
+* Rule #3000: for packets from 192.168.255.4 use routing table #3000.
+* Rule #3000: for packets from fdc9:dc25:8e35:0:a00:27ff:feaa:bc91 use routing table #3000.
 
 Rules:
 ```
@@ -132,7 +122,7 @@ It is possible to configure *static* rules/tables in Netplan. But DHCP and IPv6 
 
 ### Applying DynMHS
 
-Dynamic Multi-Homing Setup&nbsp;(DynMHS) is the solution for dynamically creating, adapting, and destroying routing tables and rules. It monitors the system's network configuration for changes, and applies the necessary settings for additional routing tables and the corresponding routing rules. This works for IPv4 and IPv6, including multiple addresses as well as additional routes over the monitored interfaces.
+Dynamic Multi-Homing Setup&nbsp;(DynMHS) is the solution for dynamically creating, adapting, and destroying routing tables and rules. DynMHS monitors the system's network configuration for changes, and applies the necessary settings for additional routing tables and the corresponding routing rules. This works for IPv4 and IPv6, including multiple addresses as well as additional routes over the monitored interfaces.
 
 #### Manual usage
 
@@ -140,7 +130,7 @@ Dynamic Multi-Homing Setup&nbsp;(DynMHS) is the solution for dynamically creatin
 sudo dynmhs --interface enp0s8:2000 --interface enp0s9:3000 --loglevel 2
 ```
 
-#### As SystemD service
+#### Running as SystemD service
 
 Configuration in /etc/dynmhs/dynmhs.conf:
 ```
@@ -155,28 +145,36 @@ NETWORK3=""
 NETWORK4=""
 NETWORK5=""
 ```
+These settings map interface enp0s8 to routing table #2000, and interface enp0s9 to routing table #3000. DynMHS will maintain the tables, and the corresponding rules.
 
-To enable and start:
+To enable and start the DynMHS service:
 ```
 sudo systemctl daemon-reload
 sudo systemctl enable dynmhs
 sudo systemctl start dynmhs
 ```
 
-To observe the logs:
+To observe the logs of the DynMHS service:
 ```
 sudo journalctl -f -u dynmhs
 ```
 
 ##### A HiPerConTracer Ping test
 
-A test with [HiPerConTracer 2.0](https://www.nntb.no/~dreibh/hipercontracer/):
+Another test with [HiPerConTracer 2.0](https://www.nntb.no/~dreibh/hipercontracer/), running HiPerConTracer Ping to the Google DNS servers from all four source addresses:
 ```
 sudo hipercontracer -P \
    -S 172.30.255.4 -S 192.168.255.4 \
    -S fdff:b44d:605c:0:a00:27ff:fedb:ad69 -S fdc9:dc25:8e35:0:a00:27ff:feaa:bc91 \
    -D 8.8.8.8 -D 2001:4860:4860::8888
+...
+2025-02-28 13:59:50.422: Ping ICMP  192.168.255.4                           8.8.8.8                                 Success  s: 27µs q:  4µs r: 54µs  A:8.892ms   S:8.808ms   H:---
+2025-02-28 13:59:50.422: Ping ICMP  fdff:b44d:605c:0:a00:27ff:fedb:ad69     2001:4860:4860::8888                    Success  s: 51µs q:  6µs r:246µs  A:8.634ms   S:8.331ms   H:---
+2025-02-28 13:59:50.422: Ping ICMP  172.30.255.4                            8.8.8.8                                 Success  s: 38µs q:  4µs r:125µs  A:9.272ms   S:9.105ms   H:---
+2025-02-28 13:59:50.422: Ping ICMP  fdc9:dc25:8e35:0:a00:27ff:feaa:bc91     2001:4860:4860::8888                    Success  s: 29µs q:  2µs r:162µs  A:8.651ms   S:8.458ms   H:---
+...
 ```
+Now, there is connectivity over both interfaces!
 
 ## Binary Package Installation
 
