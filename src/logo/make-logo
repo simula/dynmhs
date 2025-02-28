@@ -40,5 +40,5 @@ for figure in DynMHS ; do
    rm -f tmp1.pdf tmp1.eps
 
    # ------ Convert to PNG --------------------------------------------------
-   gm convert -density 300x300 $figure.pdf $figure.png
+   gm convert -density 300x300 -transparent white $figure.pdf $figure.png
 done

@@ -63,14 +63,14 @@ Note the two default routes with their different metrics (200, 300).
 
 ### Why is this setup not working as expected?
 
-A test with [HiPerConTracer 2.0](https://www.nntb.no/~dreibh/hipercontracer/), running HiPerConTracer Ping to the Google DNS servers from all four source addresses:
+The expectation is that, according to the chosen source address, a packet is routed via the corresponding interface (enp0s8 or enp0s9). This can be tested by using [HiPerConTracer 2.0](https://www.nntb.no/~dreibh/hipercontracer/), running HiPerConTracer Ping to the Google DNS servers (8.8.8.8, 2001:4860:4860::8888) from all four source addresses:
 ```
-sudo hipercontracer -P \
+user@testpc:~$ sudo hipercontracer -P \
    -S 172.30.255.4 -S 192.168.255.4 \
    -S fdff:b44d:605c:0:a00:27ff:fedb:ad69 -S fdc9:dc25:8e35:0:a00:27ff:feaa:bc91 \
    -D 8.8.8.8 -D 2001:4860:4860::8888
 ```
-Connectivity is always over the primary interface, i.e.&nbsp;172.30.255.4 and&nbsp;fdff:b44d:605c:0:a00:27ff:fedb:ad69. The reason is: This default route has the lowest metric! Also, simply using the same metric for both routes does not fix the issue. Then, just the first default route in the routing table would get used.
+Connectivity is always over the primary interface, i.e.&nbsp;172.30.255.4 and&nbsp;fdff:b44d:605c:0:a00:27ff:fedb:ad69. The reason is: This default route has the lowest metric! Also, simply using the same metric for both routes does *not* fix the issue. Then, just the first default route in the routing table would get used.
 
 To get the setup working as expected, it is necessary to configure separate routing tables for each network, and routing rules to select a routing table according to the *source* IP address. For example:
 
@@ -118,7 +118,7 @@ fe80::/64 dev enp0s9 proto kernel metric 256 pref medium
 default via fe80::5054:ff:fe12:3500 dev enp0s9 proto ra metric 300 pref medium
 ```
 
-It is possible to configure *static* rules/tables in Netplan. But DHCP and IPv6 auto-configuration use *dynamic* addresses. So, they may change!
+It would be possible to configure *static* rules/tables in Netplan. But DHCP and IPv6 auto-configuration use *dynamic* addresses. So, they may change!
 
 ### Applying DynMHS
 
@@ -163,7 +163,7 @@ sudo journalctl -f -u dynmhs
 
 Another test with [HiPerConTracer 2.0](https://www.nntb.no/~dreibh/hipercontracer/), running HiPerConTracer Ping to the Google DNS servers from all four source addresses:
 ```
-sudo hipercontracer -P \
+user@testpc:~$ sudo hipercontracer -P \
    -S 172.30.255.4 -S 192.168.255.4 \
    -S fdff:b44d:605c:0:a00:27ff:fedb:ad69 -S fdc9:dc25:8e35:0:a00:27ff:feaa:bc91 \
    -D 8.8.8.8 -D 2001:4860:4860::8888
