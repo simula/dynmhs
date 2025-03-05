@@ -203,20 +203,31 @@ sudo dnf install dynmhs
 
 DynMHS is released under the GNU General Public Licence (GPL).
 
-Please use the issue tracker at https://github.com/simula/dynmhs/issues to report bugs and issues!
+Please use the issue tracker at [https://github.com/dreibh/dynmhs/issues](https://github.com/dreibh/dynmhs/issues) to report bugs and issues!
 
 ### Development Version
 
-The Git repository of the DynMHS sources can be found at https://github.com/simula/dynmhs:
+The Git repository of the DynMHS sources can be found at [https://github.com/dreibh/dynmhs](https://github.com/dreibh/dynmhs):
 
-- Issue tracker: https://github.com/simula/dynmhs/issues.
+```
+git clone https://github.com/dreibh/dynmhs
+cd dynmhs
+cmake .
+make
+```
+
+Contributions:
+
+- Issue tracker: [https://github.com/dreibh/dynmhs/issues](https://github.com/dreibh/dynmhs/issues).
   Please submit bug reports, issues, questions, etc. in the issue tracker!
 
-- Pull Requests for DynMHS: https://github.com/simula/dynmhs/pulls.
+- Pull Requests for DynMHS: [https://github.com/dreibh/dynmhs/pulls](https://github.com/dreibh/dynmhs/pulls).
   Your contributions to DynMHS are always welcome!
 
-- CI build tests of DynMHS: https://github.com/simula/dynmhs/actions.
+- CI build tests of DynMHS: [https://github.com/dreibh/dynmhs/actions](https://github.com/dreibh/dynmhs/actions).
+
+- Coverity Scan analysis of DynMHS: [https://scan.coverity.com/projects/dreibh-td-dynmhs](https://scan.coverity.com/projects/dreibh-td-dynmhs).
 
 ### Current Stable Release
 
-See https://www.nntb.no/~dreibh/dynmhs/#Download!
+See [https://www.nntb.no/~dreibh/dynmhs/#Download](https://www.nntb.no/~dreibh/dynmhs/#Download)!
