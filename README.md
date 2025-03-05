@@ -178,11 +178,11 @@ Now, there is connectivity over both interfaces!
 
 ## Binary Package Installation
 
-Please use the issue tracker at https://github.com/simula/dynmhs/issues to report bugs and issues!
+Please use the issue tracker at [https://github.com/dreibh/dynmhs/issues](https://github.com/dreibh/dynmhs/issues) to report bugs and issues!
 
 ### Ubuntu Linux
 
-For ready-to-install Ubuntu Linux packages of DynMHS, see Launchpad PPA for Thomas Dreibholz!
+For ready-to-install Ubuntu Linux packages of DynMHS, see [Launchpad PPA for Thomas Dreibholz](https://launchpad.net/~dreibh/+archive/ubuntu/ppa/+packages?field.name_filter=dynmhs&field.status_filter=published&field.series_filter=)!
 
 ```
 sudo apt-add-repository -sy ppa:dreibh/ppa
@@ -192,7 +192,7 @@ sudo apt-get install dynmhs
 
 ### Fedora Linux
 
-For ready-to-install Fedora Linux packages of DynMHS, see COPR PPA for Thomas Dreibholz!
+For ready-to-install Fedora Linux packages of DynMHS, see [COPR PPA for Thomas Dreibholz](https://copr.fedorainfracloud.org/coprs/dreibh/ppa/package/dynmhs/)!
 
 ```
 sudo dnf copr enable -y dreibh/ppa
@@ -226,7 +226,7 @@ Contributions:
 
 - CI build tests of DynMHS: [https://github.com/dreibh/dynmhs/actions](https://github.com/dreibh/dynmhs/actions).
 
-- Coverity Scan analysis of DynMHS: [https://scan.coverity.com/projects/dreibh-td-dynmhs](https://scan.coverity.com/projects/dreibh-td-dynmhs).
+- Coverity Scan analysis of DynMHS: [https://scan.coverity.com/projects/dreibh-dynmhs](https://scan.coverity.com/projects/dreibh-dynmhs).
 
 ### Current Stable Release
 
