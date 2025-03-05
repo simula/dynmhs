@@ -230,4 +230,4 @@ Contributions:
 
 ### Current Stable Release
 
-See [https://www.nntb.no/~dreibh/dynmhs/#Download](https://www.nntb.no/~dreibh/dynmhs/#Download)!
+See [https://www.nntb.no/~dreibh/dynmhs/#StableRelease](https://www.nntb.no/~dreibh/dynmhs/#StableRelease)!
