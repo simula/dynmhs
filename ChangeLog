@@ -1,3 +1,45 @@
+commit 8e7d33f787fb84b16445aff01b21942cfe1156cd
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Mon May 12 22:40:59 2025 +0200
+
+    Improved log output.
+
+commit 07f00cd1cfd60af487ab5c9f51499b27b9a861a0
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sun Apr 27 21:12:15 2025 +0200
+
+    Updated CI configuration
+
+commit 9790ee48af4bd4aa49f5b0b768bc01d7c9610b32
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sun Apr 27 21:12:14 2025 +0200
+
+    Updated CI scripts
+
+commit c9eb60760588d56096ed17b27ba42ff359e167c4
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Wed Mar 5 13:28:08 2025 +0100
+
+    Updated README.md
+
+commit f790545b1f87c05831842b3099183f7b698f20d3
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Wed Mar 5 13:04:41 2025 +0100
+
+    Fixed links.
+
+commit bfa2f731d44429f8dac59f8ddf453ad9342b67f2
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Wed Mar 5 12:46:24 2025 +0100
+
+    Improved README.md.
+
+commit 93fb4ccc1ec2b7352ba6445e2d68ac88af9bd572
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Feb 28 15:57:33 2025 +0100
+
+    New release dynmhs-0.2.0.
+
 commit 053f87b89e81e689be5628100f629a9335eb1d3c
 Author: Thomas Dreibholz <dreibh@simula.no>
 Date:   Fri Feb 28 15:50:20 2025 +0100
