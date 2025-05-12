@@ -193,11 +193,12 @@ static void handleAddressEvent(const nlmsghdr* message)
 
 
    // ====== Show status ====================================================
-   DMHS_LOG(trace) << boost::format("Address event: event=%s if=%s (%d) address=%s")
+   DMHS_LOG(trace) << boost::format("Address event: event=%s if=%s (%d) address=%s/%d")
                          % eventName
                          % ifName
                          % ifIndex
-                         % address.to_string();
+                         % address.to_string()
+                         % prefixLength;
 
 
    // ====== Check whether an update in the custom table is necessary =======
