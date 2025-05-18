@@ -1,3 +1,15 @@
+commit 2a46fcf6c7b35f0980a670850476c8ba014e7c72
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sat May 17 22:03:28 2025 -0400
+
+    Fixed installation directory for SystemD service file.
+
+commit 35aa3330c5687b5b88f588e235d35a2a370ca486
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Mon May 12 22:50:55 2025 +0200
+
+    New release dynmhs-0.2.1.
+
 commit 8e7d33f787fb84b16445aff01b21942cfe1156cd
 Author: Thomas Dreibholz <dreibh@simula.no>
 Date:   Mon May 12 22:40:59 2025 +0200
