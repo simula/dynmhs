@@ -48,7 +48,7 @@ can take advantage of multi-homing for redundancy and load balancing.
 %{_datadir}/bash-completion/completions/dynmhs
 %{_mandir}/man1/dynmhs.1.gz
 %{_sysconfdir}/dynmhs/dynmhs.conf
-/lib/systemd/system/dynmhs.service
+%{_prefix}/lib/systemd/system/dynmhs.service
 
 
 %doc
