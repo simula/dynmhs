@@ -5,7 +5,7 @@
   <img alt="DynMHS Logo" src="src/figures/Logo-DynMHS.svg" width="25%" /><br />
   <span style="font-size: 75%;">https://www.nntb.no/~dreibh/dynmhs</span>
  </a>
-</p>
+</h1>
 
 
 # 💡 What is DynMHS?
