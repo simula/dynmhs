@@ -1,9 +1,9 @@
 <h1 align="center">
  Dynamic Multi-Homing Setup&nbsp;(DynMHS)<br />
- <span style="font-size:75%">A Tool for the Dynamic Setup of Multi-Homing IP Routing Rules</span><br />
+ <span style="font-size: 75%;">A Tool for the Dynamic Setup of Multi-Homing IP Routing Rules</span><br />
  <a href="https://www.nntb.no/~dreibh/dynmhs/">
- <img alt="DynMHS Logo" src="src/figures/Logo-DynMHS.svg" width="25%" /><br />
- <span style="font-size:75%">https://www.nntb.no/~dreibh/dynmhs/</span>
+  <img alt="DynMHS Logo" src="src/figures/Logo-DynMHS.svg" width="25%" /><br />
+  <span style="font-size: 75%;">https://www.nntb.no/~dreibh/dynmhs</span>
  </a>
 </p>
 
