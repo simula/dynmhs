@@ -243,8 +243,6 @@ Contributions:
 
 * CI build tests of DynMHS: [https://github.com/simula/dynmhs/actions](https://github.com/simula/dynmhs/actions).
 
-* Coverity Scan analysis of DynMHS: [https://scan.coverity.com/projects/dreibh-dynmhs](https://scan.coverity.com/projects/dreibh-dynmhs).
-
 ## Release Versions
 
 See [https://www.nntb.no/~simula/dynmhs/#current-stable-release](https://www.nntb.no/~simula/dynmhs/#current-stable-release) for the release packages!
