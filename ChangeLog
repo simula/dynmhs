@@ -1,3 +1,75 @@
+commit 11fcf802cf8960fff1181337196ad49a5d981e1a
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Sep 9 10:31:15 2025 +0200
+
+    Documentation fix.
+
+commit 42b721b40a019a4b024d083146e31841ef70dcca
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Sep 2 17:07:45 2025 +0200
+
+    A fix.
+
+commit 251b9e28153dea88d6a4fd2556fc968afc84b39f
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Sep 2 17:04:19 2025 +0200
+
+    Minor update.
+
+commit 0248fe65b0e92a0ce57d361bca8872776a0d2826
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Sep 2 17:02:49 2025 +0200
+
+    Updated README.md.
+
+commit 60a2501c7b9f462ad6c8eeba72aa51832657fcb9
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Sep 2 16:57:19 2025 +0200
+
+    Improved README.md.
+
+commit 25e8d911e235ce34326ccdacc327afa861d519d3
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Sep 2 16:57:13 2025 +0200
+
+    Updated figure.
+
+commit d8bbc4c499c05a5adcc80fcd44f7cf62e646de62
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Sep 2 16:29:27 2025 +0200
+
+    Updated figure and figure script.
+
+commit 7bae807e121e0afa182c524d726f75d60cf1d697
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Thu Aug 14 00:06:51 2025 +0200
+
+    Updated CI configuration
+
+commit 5eb196016e8a05d323d05edf01c31f34c1a75c15
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Aug 12 14:24:32 2025 +0200
+
+    Updated CI scripts
+
+commit 6a1b7c4378be5e9774a6cbd7f332ad52366183f8
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Aug 12 11:07:29 2025 +0200
+
+    Updated workflows.
+
+commit 90861f7ff8bc8184b6800234acc199be50354c68
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Aug 1 17:41:36 2025 +0200
+
+    Updated workflows.
+
+commit 4940657f498d2fb2607cd9bfffea7724dc33ed7b
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sat May 17 22:04:18 2025 -0400
+
+    New release dynmhs-0.2.2.
+
 commit 2a46fcf6c7b35f0980a670850476c8ba014e7c72
 Author: Thomas Dreibholz <dreibh@simula.no>
 Date:   Sat May 17 22:03:28 2025 -0400
