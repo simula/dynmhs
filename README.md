@@ -206,7 +206,7 @@ For ready-to-install Ubuntu Linux packages of DynMHS, see [Launchpad PPA for Tho
 sudo apt-add-repository -sy ppa:dreibh/ppa
 sudo apt-get update
 sudo apt-get install dynmhs
-</pre>
+```
 
 ## Fedora Linux
 
@@ -215,7 +215,7 @@ For ready-to-install Fedora Linux packages of DynMHS, see [COPR PPA for Thomas D
 ```bash
 sudo dnf copr enable -y dreibh/ppa
 sudo dnf install dynmhs
-</pre>
+```
 
 
 # 💾 Build from Sources
@@ -228,12 +228,11 @@ Please use the issue tracker at [https://github.com/simula/dynmhs/issues](https:
 
 The Git repository of the DynMHS sources can be found at [https://github.com/simula/dynmhs](https://github.com/simula/dynmhs):
 
-```bash
-git clone https://github.com/simula/dynmhs
-cd dynmhs
-cmake .
-make
-</pre>
+<pre><code><span class="fu">git</span> clone <a href="https://github.com/dreibh/dynmhs">https://github.com/dreibh/dynmhs</a>
+<span class="bu">cd</span> dynmhs
+<span class="fu">cmake</span> .
+<span class="fu">make</span>
+</code></pre>
 
 Contributions:
 
