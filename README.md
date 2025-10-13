@@ -23,7 +23,7 @@ A Linux PC is connected to two NAT networks, configuration is dynamic via IPv4 D
 * Network #2 on interface enp0s9: 192.168.255.4 / fdc9:dc25:8e35:0:a00:27ff:feaa:bc91
 
 Network settings for [Netplan](https://netplan.io/) (in <tt>/etc/netplan/testpc.yaml</tt>):
-<pre>
+```yaml
 network:
   version: 2
   ethernets:
@@ -37,24 +37,29 @@ network:
       dhcp4: true
       dhcp4-overrides:
         route-metric: 300
-</pre>
+```
+
+```bash
+sudo hipercontracer -P \
+   -S 172.30.255.4 -S 192.168.255.4 \
+   -S fdff:b44d:605c:0:a00:27ff:fedb:ad69 -S fdc9:dc25:8e35:0:a00:27ff:feaa:bc91 \
+   -D 8.8.8.8 -D 2001:4860:4860::8888
+```
 
 IPv4 routes:
 
-<pre>
-<span style="color:red;">user@host</span><span style="color:blue;">:~</span><span style="color:gray;">$</span> ip -4 route show
+<pre><code><span style="color:red;">user@host</span><span style="color:blue;">:~</span><span style="color:gray;">$</span> <span class="ex">ip</span> <span class="at">-4</span> route show
 default via 172.30.255.1 dev enp0s8 proto dhcp src 172.30.255.4 metric 200
 default via 192.168.255.1 dev enp0s9 proto dhcp src 192.168.255.4 metric 300
 172.30.255.0/24 dev enp0s8 proto kernel scope link src 172.30.255.4 metric 200
 172.30.255.1 dev enp0s8 proto dhcp scope link src 172.30.255.4 metric 200
 192.168.255.0/24 dev enp0s9 proto kernel scope link src 192.168.255.4 metric 300
 192.168.255.1 dev enp0s9 proto dhcp scope link src 192.168.255.4 metric 300
-</pre>
+</code></pre>
 
 IPv6 routes:
 
-<pre>
-<span style="color:red;">user@host</span><span style="color:blue;">:~</span><span style="color:gray;">$</span> ip -6 route show
+<pre><code><span style="color:red;">user@host</span><span style="color:blue;">:~</span><span style="color:gray;">$</span> <span class="ex">ip</span> <span class="at">-6</span> route show
 fc88:1::/64 dev hostonly101 proto kernel metric 256 linkdown pref medium
 fdc9:dc25:8e35::/64 dev enp0s9 proto ra metric 300 pref medium
 fdff:b44d:605c::/64 dev enp0s8 proto ra metric 200 pref medium
@@ -62,7 +67,7 @@ fe80::/64 dev enp0s8 proto kernel metric 256 pref medium
 fe80::/64 dev enp0s9 proto kernel metric 256 pref medium
 default via fe80::5054:ff:fe12:3500 dev enp0s8 proto ra metric 200 expires 788sec pref medium
 default via fe80::5054:ff:fe12:3500 dev enp0s9 proto ra metric 300 expires 772sec pref medium
-</pre>
+</code></pre>
 
 Note the two default routes with their different metrics (200, 300).
 
@@ -70,12 +75,11 @@ Note the two default routes with their different metrics (200, 300).
 
 The expectation is that, according to the chosen source address, a packet is routed via the corresponding interface (enp0s8 or enp0s9). This can be tested by using [HiPerConTracer](https://www.nntb.no/~dreibh/hipercontracer/), running HiPerConTracer Ping to the Google DNS servers (8.8.8.8, 2001:4860:4860::8888) from all four source addresses:
 
-<pre>
-<span style="color:red;">user@host</span><span style="color:blue;">:~</span><span style="color:gray;">$</span> sudo hipercontracer -P \
-   -S 172.30.255.4 -S 192.168.255.4 \
-   -S fdff:b44d:605c:0:a00:27ff:fedb:ad69 -S fdc9:dc25:8e35:0:a00:27ff:feaa:bc91 \
-   -D 8.8.8.8 -D 2001:4860:4860::8888
-</pre>
+<pre><code><span style="color:red;">user@host</span><span style="color:blue;">:~</span><span style="color:gray;">$</span> <span class="fu">sudo</span> hipercontracer <span class="at">-P</span> \
+   <span class="at">-S</span> 172.30.255.4 <span class="at">-S</span> 192.168.255.4 \
+   <span class="at">-S</span> fdff:b44d:605c:0:a00:27ff:fedb:ad69 <span class="at">-S</span> fdc9:dc25:8e35:0:a00:27ff:feaa:bc91 \
+   <span class="at">-D</span> 8.8.8.8 <span class="at">-D</span> 2001:4860:4860::8888
+</code></pre>
 
 Connectivity is always over the primary interface, i.e.&nbsp;172.30.255.4 and&nbsp;fdff:b44d:605c:0:a00:27ff:fedb:ad69. The reason is: This default route has the lowest metric! Also, simply using the same metric for both routes does *not* fix the issue. Then, just the first default route in the routing table would get used.
 
@@ -88,44 +92,42 @@ To get the setup working as expected, it is necessary to configure separate rout
 
 Rules:
 
-<pre>
-<span style="color:red;">user@host</span><span style="color:blue;">:~</span><span style="color:gray;">$</span> ip rule show
+<pre><code><span style="color:red;">user@host</span><span style="color:blue;">:~</span><span style="color:gray;">$</span> <span class="ex">ip</span> rule show
 0:      from all lookup local
 2000:   from 172.30.255.4 lookup 2000
 3000:   from 192.168.255.4 lookup 3000
 32766:  from all lookup main
 32767:  from all lookup default
 
-<span style="color:red;">user@host</span><span style="color:blue;">:~</span><span style="color:gray;">$</span> ip -6 rule show
+<span style="color:red;">user@host</span><span style="color:blue;">:~</span><span style="color:gray;">$</span> <span class="ex">ip</span> <span class="at">-6</span> rule show
 0:      from all lookup local
 2000:   from fdff:b44d:605c:0:a00:27ff:fedb:ad69 lookup 2000
 3000:   from fdc9:dc25:8e35:0:a00:27ff:feaa:bc91 lookup 3000
 32766:  from all lookup main
-</pre>
+</code></pre>
 
 Tables:
 
-<pre>
-<span style="color:red;">user@host</span><span style="color:blue;">:~</span><span style="color:gray;">$</span> ip route show table 2000
+<pre><code><span style="color:red;">user@host</span><span style="color:blue;">:~</span><span style="color:gray;">$</span> <span class="ex">ip</span> route show table 2000
 default via 172.30.255.1 dev enp0s8 proto dhcp src 172.30.255.4 metric 200
 172.30.255.0/24 dev enp0s8 proto kernel scope link src 172.30.255.4 metric 200
 172.30.255.1 dev enp0s8 proto dhcp scope link src 172.30.255.4 metric 200
 
-<span style="color:red;">user@host</span><span style="color:blue;">:~</span><span style="color:gray;">$</span> ip -6 route show table 2000
+<span style="color:red;">user@host</span><span style="color:blue;">:~</span><span style="color:gray;">$</span> <span class="ex">ip</span> <span class="at">-6</span> route show table 2000
 fdff:b44d:605c::/64 dev enp0s8 proto ra metric 200 pref medium
 fe80::/64 dev enp0s8 proto kernel metric 256 pref medium
 default via fe80::5054:ff:fe12:3500 dev enp0s8 proto ra metric 200 pref medium
 
-<span style="color:red;">user@host</span><span style="color:blue;">:~</span><span style="color:gray;">$</span> ip route show table 3000
+<span style="color:red;">user@host</span><span style="color:blue;">:~</span><span style="color:gray;">$</span> <span class="ex">ip</span> route show table 3000
 default via 192.168.255.1 dev enp0s9 proto dhcp src 192.168.255.4 metric 300
 192.168.255.0/24 dev enp0s9 proto kernel scope link src 192.168.255.4 metric 300
 192.168.255.1 dev enp0s9 proto dhcp scope link src 192.168.255.4 metric 300
 
-<span style="color:red;">user@host</span><span style="color:blue;">:~</span><span style="color:gray;">$</span> ip -6 route show table 3000
+<span style="color:red;">user@host</span><span style="color:blue;">:~</span><span style="color:gray;">$</span> <span class="ex">ip</span> <span class="at">-6</span> route show table 3000
 fdc9:dc25:8e35::/64 dev enp0s9 proto ra metric 300 pref medium
 fe80::/64 dev enp0s9 proto kernel metric 256 pref medium
 default via fe80::5054:ff:fe12:3500 dev enp0s9 proto ra metric 300 pref medium
-</pre>
+</code></pre>
 
 It would be possible to configure *static* rules/tables in Netplan. But DHCP and IPv6 auto-configuration use *dynamic* addresses. So, they may change!
 
@@ -135,15 +137,15 @@ Dynamic Multi-Homing Setup&nbsp;(DynMHS) is the solution for dynamically creatin
 
 ### Manual usage
 
-<pre>
+```bash
 sudo dynmhs --interface enp0s8:2000 --interface enp0s9:3000 --loglevel 2
-</pre>
+```
 
 ### Running as SystemD service
 
 Configuration in <tt>/etc/dynmhs/dynmhs.conf</tt>:
 
-<pre>
+```bash
 # ====== Logging Verbosity ==================================================
 # 0=trace, 1=debug, 2=info, 3=warning, 4=error, 5=fatal
 LOGLEVEL=2
@@ -154,23 +156,23 @@ NETWORK2="enp0s9:3000"
 NETWORK3=""
 NETWORK4=""
 NETWORK5=""
-</pre>
+```
 
 These settings map interface enp0s8 to routing table #2000, and interface enp0s9 to routing table #3000. DynMHS will maintain the tables, and the corresponding rules.
 
 To enable and start the DynMHS service:
 
-<pre>
+```bash
 sudo systemctl daemon-reload
 sudo systemctl enable dynmhs
 sudo systemctl start dynmhs
-</pre>
+```
 
 To observe the logs of the DynMHS service:
 
-<pre>
+```bash
 sudo journalctl -f -u dynmhs
-</pre>
+```
 
 ### A HiPerConTracer Ping test
 
@@ -200,7 +202,7 @@ Please use the issue tracker at [https://github.com/simula/dynmhs/issues](https:
 
 For ready-to-install Ubuntu Linux packages of DynMHS, see [Launchpad PPA for Thomas Dreibholz](https://launchpad.net/~dreibh/+archive/ubuntu/ppa/+packages?field.name_filter=dynmhs&field.status_filter=published&field.series_filter=)!
 
-<pre>
+```bash
 sudo apt-add-repository -sy ppa:dreibh/ppa
 sudo apt-get update
 sudo apt-get install dynmhs
@@ -210,7 +212,7 @@ sudo apt-get install dynmhs
 
 For ready-to-install Fedora Linux packages of DynMHS, see [COPR PPA for Thomas Dreibholz](https://copr.fedorainfracloud.org/coprs/dreibh/ppa/package/dynmhs/)!
 
-<pre>
+```bash
 sudo dnf copr enable -y dreibh/ppa
 sudo dnf install dynmhs
 </pre>
@@ -226,7 +228,7 @@ Please use the issue tracker at [https://github.com/simula/dynmhs/issues](https:
 
 The Git repository of the DynMHS sources can be found at [https://github.com/simula/dynmhs](https://github.com/simula/dynmhs):
 
-<pre>
+```bash
 git clone https://github.com/simula/dynmhs
 cd dynmhs
 cmake .
