@@ -22,7 +22,7 @@ A Linux PC is connected to two NAT networks, configuration is dynamic via IPv4 D
 * Network #1 on interface enp0s8: 172.30.255.4 / fdff:b44d:605c:0:a00:27ff:fedb:ad69
 * Network #2 on interface enp0s9: 192.168.255.4 / fdc9:dc25:8e35:0:a00:27ff:feaa:bc91
 
-Network settings for [Netplan](https://netplan.io/) (in <tt>/etc/netplan/testpc.yaml</tt>):
+Network settings for [Netplan](https://netplan.io/) (in `/etc/netplan/testpc.yaml`):
 ```yaml
 network:
   version: 2
@@ -143,7 +143,7 @@ sudo dynmhs --interface enp0s8:2000 --interface enp0s9:3000 --loglevel 2
 
 ### Running as SystemD service
 
-Configuration in <tt>/etc/dynmhs/dynmhs.conf</tt>:
+Configuration in `/etc/dynmhs/dynmhs.conf`:
 
 ```bash
 # ====== Logging Verbosity ==================================================
