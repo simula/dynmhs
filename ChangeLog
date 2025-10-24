@@ -1,3 +1,33 @@
+commit 6c0cf40c00f5614217bbffa1c9cd4c29f31ba4a9
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Oct 14 20:16:25 2025 +0200
+
+    Minor update.
+
+commit 8ec939504a278999d20e40bd1b111eb59805d7cc
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Oct 14 19:27:27 2025 +0200
+
+    Improved documentation.
+
+commit d9e883db0781a46307f44725389edeec876f37ff
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Mon Oct 13 21:43:48 2025 +0200
+
+    Minor documentation update.
+
+commit 10e537e6d08eea714b4ebc1df3f9b2648f0c9182
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Mon Oct 13 20:39:36 2025 +0200
+
+    Improved documentation.
+
+commit e7dc2028ad7fd3d83d535de78a9bf85150961303
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sun Sep 21 19:19:56 2025 +0200
+
+    New release dynmhs-0.2.3.
+
 commit 11fcf802cf8960fff1181337196ad49a5d981e1a
 Author: Thomas Dreibholz <dreibh@simula.no>
 Date:   Tue Sep 9 10:31:15 2025 +0200
