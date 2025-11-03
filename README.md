@@ -236,7 +236,7 @@ cmake .
 make
 ```
 
-Note: The script [`ci/get-dependencies`](https://github.com/simula/dynmhs/blob/master/ci/get-dependencies) automatically  installs the build dependencies under Debian/Ubuntu Linux, Fedora Linux, and FreeBSD. For manual handling of the build dependencies, see the packaging configuration in [debian/control](https://github.com/simula/dynmhs/blob/master/debian/control) (Debian/Ubuntu Linux), [dynmhs.spec](https://github.com/simula/dynmhs/blob/master/rpm/dynmhs.spec) (Fedora Linux), and [Makefile](https://github.com/simula/dynmhs/blob/master/freebsd/dynmhs/Makefile) FreeBSD.
+Note: The script [`ci/get-dependencies`](https://github.com/simula/dynmhs/blob/master/ci/get-dependencies) automatically  installs the build dependencies under Debian/Ubuntu Linux, Fedora Linux, and FreeBSD. For manual handling of the build dependencies, see the packaging configuration in [`debian/control`](https://github.com/simula/dynmhs/blob/master/debian/control) (Debian/Ubuntu Linux), [`dynmhs.spec`](https://github.com/simula/dynmhs/blob/master/rpm/dynmhs.spec) (Fedora Linux), and [`Makefile`](https://github.com/simula/dynmhs/blob/master/freebsd/dynmhs/Makefile) FreeBSD.
 
 Contributions:
 
