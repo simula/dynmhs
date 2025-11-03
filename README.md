@@ -228,11 +228,15 @@ Please use the issue tracker at [https://github.com/simula/dynmhs/issues](https:
 
 The Git repository of the DynMHS sources can be found at [https://github.com/simula/dynmhs](https://github.com/simula/dynmhs):
 
-<pre><code><span class="fu">git</span> clone <a href="https://github.com/dreibh/dynmhs">https://github.com/dreibh/dynmhs</a>
-<span class="bu">cd</span> dynmhs
-<span class="fu">cmake</span> .
-<span class="fu">make</span>
-</code></pre>
+```bash
+git clone https://github.com/simula/dynmhs
+cd dynmhs
+sudo ci/get-dependencies --install
+cmake .
+make
+```
+
+Note: The script [`ci/get-dependencies`](https://github.com/simula/dynmhs/blob/master/ci/get-dependencies) automatically installs the build dependencies for Debian/Ubuntu Linux, Fedora Linux, and FreeBSD. For manual handling of the build dependencies, see the packaging configuration in [debian/control](https://github.com/simula/dynmhs/blob/master/debian/control) (Debian/Ubuntu Linux), [dynmhs.spec](https://github.com/simula/dynmhs/blob/master/rpm/dynmhs.spec) (Fedora Linux), and [Makefile](https://github.com/simula/dynmhs/blob/master/freebsd/dynmhs/Makefile) FreeBSD.
 
 Contributions:
 
