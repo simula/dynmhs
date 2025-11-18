@@ -146,11 +146,17 @@ sudo dynmhs --network enp0s8:2000 --network enp0s9:3000 --loglevel 2
 Configuration in `/etc/dynmhs/dynmhs.conf`:
 
 ```bash
-# ====== Logging Verbosity ==================================================
-# 0=trace, 1=debug, 2=info, 3=warning, 4=error, 5=fatal
+# ====== Logging ============================================================
+# Logging verbosity (0=trace, 1=debug, 2=info, 3=warning, 4=error, 5=fatal):
 LOGLEVEL=2
 
-# ====== Options ============================================================
+# Usage of colors for log output (ON or OFF):
+LOGCOLOR=ON
+
+# Custom logfile:
+# LOGFILE="/var/log/dynmhs.log"
+
+# ====== Networks ===========================================================
 NETWORK="enp0s8:2000"
 NETWORK="enp0s9:3000"
 ```
