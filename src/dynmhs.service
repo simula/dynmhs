@@ -38,15 +38,8 @@ ConditionCapability=CAP_NET_ADMIN
 [Service]
 Type=simple
 User=root
-EnvironmentFile=/etc/dynmhs/dynmhs.conf
 
-ExecStart=/usr/bin/dynmhs \
-   --loglevel ${LOGLEVEL} \
-   --interface ${NETWORK1} \
-   --interface ${NETWORK2} \
-   --interface ${NETWORK3} \
-   --interface ${NETWORK4} \
-   --interface ${NETWORK5}
+ExecStart=/usr/bin/dynmhs --config /etc/dynmhs/dynmhs.conf
 
 KillSignal=SIGINT
 KillMode=control-group
