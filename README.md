@@ -138,7 +138,7 @@ Dynamic Multi-Homing Setup&nbsp;(DynMHS) is the solution for dynamically creatin
 ### Manual usage
 
 ```bash
-sudo dynmhs --interface enp0s8:2000 --interface enp0s9:3000 --loglevel 2
+sudo dynmhs --network enp0s8:2000 --network enp0s9:3000 --loglevel 2
 ```
 
 ### Running as SystemD service
@@ -151,14 +151,11 @@ Configuration in `/etc/dynmhs/dynmhs.conf`:
 LOGLEVEL=2
 
 # ====== Options ============================================================
-NETWORK1="enp0s8:2000"
-NETWORK2="enp0s9:3000"
-NETWORK3=""
-NETWORK4=""
-NETWORK5=""
+NETWORK="enp0s8:2000"
+NETWORK="enp0s9:3000"
 ```
 
-These settings map interface enp0s8 to routing table #2000, and interface enp0s9 to routing table #3000. DynMHS will maintain the tables, and the corresponding rules.
+These settings map interface enp0s8 to routing table #2000, and interface enp0s9 to routing table #3000. DynMHS will maintain the tables, and the corresponding rules. Note: more `NETWORK=` lines can be added as necessary.
 
 To enable and start the DynMHS service:
 
