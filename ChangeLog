@@ -1,3 +1,75 @@
+commit 8e1eb289ae2a799c3aa5c3db8d6996f6c858724d
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Nov 18 15:14:49 2025 +0100
+
+    Added configuration file.
+
+commit a5d435fe9c472134ae23ad828786921378958da5
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Nov 18 13:35:13 2025 +0100
+
+    Improved documentation.
+
+commit 1ecb7afd2e75960e99a370933326e7b347b887fb
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Nov 18 13:33:50 2025 +0100
+
+    Updated documentation.
+
+commit 3dedc8d6b0d3a51d5cf938cc985c573c1e2dc57a
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Nov 18 13:33:41 2025 +0100
+
+    Updated example configuration.
+
+commit 3bc08fc2bedfe453500c8e74cfbb27d271fe944c
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Nov 18 13:33:35 2025 +0100
+
+    Improved options.
+
+commit f8698b512c455d9dd860dc5d2c023cc6670653ed
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Nov 18 13:22:59 2025 +0100
+
+    Improved service configuration.
+
+commit 164c180e2f41c29c787bbc6237af75b7850c5ac4
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Nov 18 13:22:51 2025 +0100
+
+    Improved manpage.
+
+commit c5aaa18bb6e4b4061c57202145b0a4e768dc4512
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Nov 18 13:06:09 2025 +0100
+
+    Added support to process configuration file in DynMHS, rather than relying on SystemD's limited parsing features.
+
+commit a578e0276521a955c0659d2bebcfd26bb48fcafb
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Mon Nov 3 13:03:53 2025 +0100
+
+    Yet another documentation update.
+
+commit 58c491801b9f505f1bbb7e2fbc22578de9d8b9bc
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Mon Nov 3 12:49:49 2025 +0100
+
+    Minor documentation update.
+
+commit b562c328a500f27d820c813aad466466a73ace7c
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Mon Nov 3 12:40:04 2025 +0100
+
+    Improved documentation.
+
+commit de9c438a392ecc0fad4cc9e19cccd7a47b49b4e6
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Oct 24 13:29:43 2025 +0200
+
+    New release dynmhs-0.2.4.
+
 commit 6c0cf40c00f5614217bbffa1c9cd4c29f31ba4a9
 Author: Thomas Dreibholz <dreibh@simula.no>
 Date:   Tue Oct 14 20:16:25 2025 +0200
