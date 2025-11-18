@@ -28,7 +28,7 @@
 .\" Contact: dreibh@simula.no
 .\"
 .\" ###### Setup ############################################################
-.Dd February 28, 2025
+.Dd November 18, 2025
 .Dt dynmhs 1
 .Os dynmhs
 .\" ###### Name #############################################################
@@ -38,11 +38,20 @@
 .\" ###### Synopsis #########################################################
 .Sh SYNOPSIS
 .Nm dynmhs
+.Op Fl C Ar config_file | Fl Fl config Ar config_file
+.br
+.Op Fl O Ar log_file | Fl Fl logfile Ar log_file
+.br
 .Op Fl Z Ar on|off | Fl Fl logcolor Ar on|off
-.Op Fl O Ar file | Fl Fl logfile Ar file
+.br
+.Op Fl N Ar interface:table_id | Fl Fl network Ar interface:table_id
+.br
 .Op Fl q | Fl Fl quiet
-.Op Fl v | Fl Fl verbose
-.Op Fl I Ar interface:table_id | Fl Fl interface Ar interface:table_id
+.Op Fl ! | Fl Fl verbose
+.Nm dynmhs
+.Op Fl h | Fl Fl help
+.Nm dynmhs
+.Op Fl v | Fl Fl version
 .\" ###### Description ######################################################
 .Sh DESCRIPTION
 .Nm dynmhs
@@ -60,28 +69,37 @@ can take advantage of multi-homing for redundancy and load balancing.
 .Sh ARGUMENTS
 The following argument may be provided:
 .Bl -tag -width indent
+.It Fl C Ar config_file | Fl Fl config Ar config_file
+Read the configuration from the given configuration file.
 .It Fl L Ar level | Fl Fl loglevel Ar level
 Sets the minimum logging level to the provided value: 0=trace, 1=debug, 2=info, 3=warning, 4=error, 5=fatal.
 .It Fl Z Ar on|off | Fl Fl logcolor Ar on|off
 Enables (on) or disables (off) the usage of ANSI color escape sequences to colorise the log output according to its level.
-.It Fl O Ar file | Fl Fl logfile Ar file
+.It Fl O Ar log_file | Fl Fl logfile Ar log_file
 Sets a file name for appending the log output to. If a file is set, no log output is made to the console.
 Otherwise, all log output will be written to the console.
 .It Fl q | Fl Fl quiet
 Sets the minimum logging level to 3 (warning).
 .It Fl v | Fl Fl verbose
 Sets the minimum logging level to 0 (trace).
-.It Fl I Ar interface:table_id | Fl Fl interface Ar interface:table_id
+.It Fl N Ar interface:table_id | Fl Fl network Ar interface:table_id
 Sets an interface and the corresponding routing table ID. All routing entries referring to this interface will be cloned from the main routing table. All IP addresses of the interface will get an IP rule pointing to the corresponding routing table.
 The parameter can be repeated to provide multiple interfaces.
+.It Fl I Ar interface:table_id | Fl Fl interface Ar interface:table_id
+Deprecated alias for \-\-network.
+.It Fl h | Fl Fl help
+Prints command help.
+.It Fl Fl version
+Prints program version.
 .El
 .\" ###### Arguments ########################################################
 .Sh EXAMPLES
 .Bl -tag -width indent
+.It sudo dynmhs -C /etc/dynmhs/dynmhs.conf
+.It sudo dynmhs --network eno1:1000 --network eno2:1002 --loglevel 0
+.It sudo dynmhs -N ethernet:1000 -N telia:2000 -N telenor:3000 --loglevel 2
+.It sudo dynmhs -N ethernet:1000 -N telia:2000 -N telenor:3000 --logcolor off
 .It dynmhs --version
-.It sudo dynmhs --interface eno1:1000 --interface eno2:1002 --loglevel 0
-.It sudo dynmhs -I ethernet:1000 -I telia:2000 -I telenor:3000 --loglevel 2
-.It sudo dynmhs -I ethernet:1000 -I telia:2000 -I telenor:3000 --logcolor off
 .El
 .\" ###### Authors ##########################################################
 .Sh AUTHORS
