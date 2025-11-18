@@ -31,10 +31,12 @@
 #include <chrono>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <queue>
 #include <vector>
+#include <boost/algorithm/string.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/format.hpp>
 #include <boost/program_options.hpp>
@@ -65,8 +67,15 @@ static std::map<std::string, unsigned int>            InterfaceMap;
 static std::queue<std::pair<const nlmsghdr*, size_t>> RequestQueue;
 
 
+// ###### Append strings from source vector to destination vector ###########
+static void addStringsToVector(std::vector<std::string>&       destination,
+                               const std::vector<std::string>& source)
+{
+   destination.insert(destination.end(), source.begin(), source.end());
+}
 
-// ###### Arribute helper ###################################################
+
+// ###### Attribute helper ##################################################
 #define NLMSG_TAIL(message) \
            ((rtattr*)(((long)(message)) + (long)NLMSG_ALIGN((message)->nlmsg_len)))
 static int addattr(nlmsghdr* message, const unsigned int maxlen,
@@ -743,9 +752,10 @@ static bool cleanUpDynMHS(int sd)
 int main(int argc, char** argv)
 {
    // ====== Initialise =====================================================
-   unsigned int          logLevel;
-   bool                  logColor;
-   std::filesystem::path logFile;
+   unsigned int             logLevel;
+   bool                     logColor;
+   std::filesystem::path    configFile;
+   std::filesystem::path    logFile;
 
    boost::program_options::options_description commandLineOptions;
    commandLineOptions.add_options()
@@ -754,6 +764,9 @@ int main(int argc, char** argv)
       ( "version",
            "Print program version" )
 
+      ( "config,C",
+           boost::program_options::value<std::filesystem::path>(&configFile)->default_value(std::filesystem::path()),
+           "Configuration file" )
       ( "loglevel,L",
            boost::program_options::value<unsigned int>(&logLevel)->default_value(boost::log::trivial::severity_level::info),
            "Set logging level" )
@@ -770,60 +783,122 @@ int main(int argc, char** argv)
            boost::program_options::value<unsigned int>(&logLevel)->implicit_value(boost::log::trivial::severity_level::warning),
            "Quiet logging level" )
 
+      ( "network,N",
+           boost::program_options::value<std::vector<std::string>>(),
+           "Network to rule mapping" );
+
+      // ------ Deprecated! -------------------------------------------------
       ( "interface,I",
            boost::program_options::value<std::vector<std::string>>(),
-           "Interface" );
+           "Network to rule mapping" );
+      // ------ Deprecated! -------------------------------------------------
 
 
    // ====== Handle command-line arguments ==================================
-   boost::program_options::variables_map vm;
+   boost::program_options::variables_map commandLineVariablesMap;
    try {
-      boost::program_options::store(boost::program_options::command_line_parser(argc, argv).
-                                       style(
-                                          boost::program_options::command_line_style::style_t::default_style|
-                                          boost::program_options::command_line_style::style_t::allow_long_disguise
-                                       ).
-                                       options(commandLineOptions).
-                                       run(), vm);
-      boost::program_options::notify(vm);
+      boost::program_options::store(
+         boost::program_options::command_line_parser(argc, argv).
+            style(
+               boost::program_options::command_line_style::style_t::default_style|
+               boost::program_options::command_line_style::style_t::allow_long_disguise
+            ).
+            options(commandLineOptions).
+            run(),
+            commandLineVariablesMap);
+      boost::program_options::notify(commandLineVariablesMap);
    }
    catch(std::exception& e) {
       std::cerr << "ERROR: Bad parameter: " << e.what() << "\n";
       return 1;
    }
 
-   if(vm.count("help")) {
+   if(commandLineVariablesMap.count("help")) {
        std::cerr << "Usage: " << argv[0] << " parameters" << "\n"
                  << commandLineOptions;
        return 1;
    }
-   else if(vm.count("version")) {
+   else if(commandLineVariablesMap.count("version")) {
       std::cout << "Dynamic Multi-Homing Setup (DynMHS), Version " << DYNMHS_VERSION << "\n";
       return 0;
    }
-   if(vm.count("interface")) {
-      const std::vector<std::string>& interfaceVector =
-         vm["interface"].as<std::vector<std::string>>();
-      for(auto iterator = interfaceVector.begin(); iterator != interfaceVector.end(); iterator++) {
-         const std::string& interfaceConfiguration = *iterator;
-         if(interfaceConfiguration != "") {
-            const int delimiter = interfaceConfiguration.find(':');
-            if(delimiter == -1) {
-                std::cerr << "ERROR: Bad interface configuration " << interfaceConfiguration << "!\n";
-                return 1;
-            }
-            const std::string interface = interfaceConfiguration.substr(0, delimiter);
-            const std::string table     = interfaceConfiguration.substr(delimiter + 1,
-                                                                        interfaceConfiguration.size());
-            unsigned int tableID = atol(table.c_str());
-            if( (tableID < 1000) || (tableID >= 30000) ) {
-                std::cerr << "ERROR: Bad table ID in interface configuration "
-                          << interfaceConfiguration << "!\n";
-                return 1;
-            }
-            InterfaceMap.insert(std::pair<std::string, unsigned int>(interface, tableID));
-         }
+
+   // ====== Handle parameters from configuration file ======================
+   boost::program_options::variables_map configFileVariablesMap;
+   if(commandLineVariablesMap.count("config")) {
+      std::ifstream configurationInputStream(configFile);
+      if(!configurationInputStream.good()) {
+         std::cerr << "ERROR: Unable to read configuration file "
+                  << configFile << "\n";
+         return 1;
       }
+
+      boost::program_options::options_description configFileOptions;
+      configFileOptions.add_options()
+         ( "LOGLEVEL",
+           boost::program_options::value<unsigned int>()->default_value(boost::log::trivial::severity_level::info) )
+         ( "NETWORK",
+           boost::program_options::value<std::vector<std::string>>() )
+         // ------ Deprecated! -------------------------------------------------
+         ( "NETWORK1", boost::program_options::value<std::vector<std::string>>() )
+         ( "NETWORK2", boost::program_options::value<std::vector<std::string>>() )
+         ( "NETWORK3", boost::program_options::value<std::vector<std::string>>() )
+         ( "NETWORK4", boost::program_options::value<std::vector<std::string>>() )
+         ( "NETWORK5", boost::program_options::value<std::vector<std::string>>() );
+         // ------ Deprecated! -------------------------------------------------
+
+      try {
+         boost::program_options::store(
+            boost::program_options::parse_config_file(
+               configurationInputStream , configFileOptions), configFileVariablesMap);
+         boost::program_options::notify(configFileVariablesMap);
+      } catch(const std::exception& e) {
+         std::cerr << "ERROR: Parsing configuration file " << configFile
+                  << " failed: " << e.what() << "\n";
+         return 1;
+      }
+   }
+
+
+   // ====== Initialise InterfaceMap ========================================
+   std::vector<std::string> networkVector;
+   const char* labels1[] = { "network", "interface" };
+   for(unsigned int i = 0; i < sizeof(labels1) / sizeof(labels1[0]); i++) {
+      const char* label = labels1[i];
+      if(commandLineVariablesMap.count(label)) {
+         addStringsToVector(networkVector, commandLineVariablesMap[label].as<std::vector<std::string>>());
+      }
+   }
+   const char* labels2[] = { "NETWORK", "NETWORK1", "NETWORK2", "NETWORK3", "NETWORK4", "NETWORK5" };
+   for(unsigned int i = 0; i < sizeof(labels2) / sizeof(labels2[0]); i++) {
+      const char* label = labels2[i];
+      if(configFileVariablesMap.count(label)) {
+         addStringsToVector(networkVector, configFileVariablesMap[label].as<std::vector<std::string>>());
+      }
+   }
+   for(std::string& network : networkVector) {
+      boost::trim_if(network, boost::is_any_of("\""));
+      if(network != "") {
+         const int delimiter = network.rfind(':');
+         if(delimiter == -1) {
+            std::cerr << "ERROR: Bad network configuration " << network << "!\n";
+            return 1;
+         }
+         const std::string interface = network.substr(0, delimiter);
+         const std::string table     = network.substr(delimiter + 1,
+                                                      network.size());
+         unsigned int tableID = atol(table.c_str());
+         if( (tableID < 1000) || (tableID >= 30000) ) {
+            std::cerr << "ERROR: Bad table ID in network configuration "
+                      << network << "!\n";
+            return 1;
+         }
+         InterfaceMap.insert(std::pair<std::string, unsigned int>(interface, tableID));
+      }
+   }
+   if(InterfaceMap.size() < 1) {
+      std::cerr << "ERROR: No networks were defined!\n";
+      return 1;
    }
 
    // ====== Initialize logger ==============================================
