@@ -814,9 +814,9 @@ int main(int argc, char** argv)
    }
 
    if(commandLineVariablesMap.count("help")) {
-       std::cerr << "Usage: " << argv[0] << " parameters" << "\n"
-                 << commandLineOptions;
-       return 1;
+      std::cerr << "Usage: " << argv[0] << " parameters" << "\n"
+                << commandLineOptions;
+      return 1;
    }
    else if(commandLineVariablesMap.count("version")) {
       std::cout << "Dynamic Multi-Homing Setup (DynMHS), Version " << DYNMHS_VERSION << "\n";
@@ -825,18 +825,22 @@ int main(int argc, char** argv)
 
    // ====== Handle parameters from configuration file ======================
    boost::program_options::variables_map configFileVariablesMap;
-   if(commandLineVariablesMap.count("config")) {
+   if(configFile != std::filesystem::path()) {
       std::ifstream configurationInputStream(configFile);
       if(!configurationInputStream.good()) {
          std::cerr << "ERROR: Unable to read configuration file "
-                  << configFile << "\n";
+                   << configFile << "\n";
          return 1;
       }
 
       boost::program_options::options_description configFileOptions;
       configFileOptions.add_options()
          ( "LOGLEVEL",
-           boost::program_options::value<unsigned int>()->default_value(boost::log::trivial::severity_level::info) )
+            boost::program_options::value<unsigned int>(&logLevel)->default_value(boost::log::trivial::severity_level::info) )
+         ( "LOGFILE",
+            boost::program_options::value<std::filesystem::path>(&logFile) )
+         ( "LOGCOLOR",
+            boost::program_options::value<bool>(&logColor) )
          ( "NETWORK",
            boost::program_options::value<std::vector<std::string>>() )
          // ------ Deprecated! -------------------------------------------------
