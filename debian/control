@@ -6,7 +6,7 @@ Homepage: https://www.nntb.no/~dreibh/dynmhs/
 Vcs-Git: https://github.com/simula/dynmhs.git
 Vcs-Browser: https://github.com/simula/dynmhs
 Build-Depends: cmake,
-               debhelper (>= 12),
+               debhelper-compat (= 13),
                libboost-log-dev,
                libboost-program-options-dev
 Standards-Version: 4.7.2
