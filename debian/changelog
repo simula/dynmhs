@@ -1,7 +1,13 @@
-dynmhs (0.3.0-1ubuntu1) trixie; urgency=medium
+dynmhs (0.3.1-1ubuntu1) trixie; urgency=medium
 
   * New upstream release.
   * Closes: #1099114 (ITP).
+
+ -- Thomas Dreibholz <dreibh@simula.no>  Tue, 09 Dec 2025 17:21:38 +0100
+
+dynmhs (0.3.0-1ubuntu1) trixie; urgency=medium
+
+  * New upstream release.
 
  -- Thomas Dreibholz <dreibh@simula.no>  Tue, 18 Nov 2025 15:17:30 +0100
 
