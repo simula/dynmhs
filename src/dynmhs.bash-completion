@@ -65,14 +65,12 @@ _dynmhs()
          ;;
       # ====== Special case: on/off ======================================
       -Z | --logcolor)
-         # shellcheck disable=SC2207
-         COMPREPLY=( $(compgen -W "on off" --  "${cur}") )
+         mapfile -t COMPREPLY < <(compgen -W "on off" --  "${cur}")
          return
          ;;
       # ====== Special case: interface ===================================
       -I | --interface)
-         # shellcheck disable=SC2207
-         COMPREPLY=( $(compgen -W "$(ip addr show | grep -E "^[0-9]+" | cut -d':' -f2)" --  "${cur}") )
+         mapfile -t COMPREPLY < <(compgen -W "$(ip addr show | grep -E "^[0-9]+" | cut -d':' -f2)" --  "${cur}")
          return
          ;;
    esac
@@ -90,8 +88,7 @@ _dynmhs()
 -I
 --interface
 "
-   # shellcheck disable=SC2207
-   COMPREPLY=( $( compgen -W "${opts}" -- "${cur}" ) )
+   mapfile -t COMPREPLY < <(compgen -W "${opts}" -- "${cur}" )
    return 0
 }
 
