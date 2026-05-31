@@ -63,6 +63,12 @@ _dynmhs()
          _filedir '@(log)'
          return
          ;;
+      # ====== Special case: log file ====================================
+      -C | --config)
+         # Files with extension .conf:
+         _filedir '@(conf)'
+         return
+         ;;
       # ====== Special case: on/off ======================================
       -Z | --logcolor)
          mapfile -t COMPREPLY < <(compgen -W "on off" --  "${cur}")
@@ -77,16 +83,22 @@ _dynmhs()
 
    # ====== All options =====================================================
    local opts="
--Z
---logcolor
+-C
+--config
 -O
 --logfile
+-Z
+--logcolor
+-N
+--network
 -q
 --quiet
--v
+-!
 --verbose
--I
---interface
+-h
+--help
+-v
+--version
 "
    mapfile -t COMPREPLY < <(compgen -W "${opts}" -- "${cur}" )
    return 0

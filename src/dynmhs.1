@@ -80,7 +80,7 @@ Sets a file name for appending the log output to. If a file is set, no log outpu
 Otherwise, all log output will be written to the console.
 .It Fl q | Fl \-quiet
 Sets the minimum logging level to 3 (warning).
-.It Fl v | Fl \-verbose
+.It Fl ! | Fl \-verbose
 Sets the minimum logging level to 0 (trace).
 .It Fl N Ar interface:table\_id | Fl \-network Ar interface:table\_id
 Sets an interface and the corresponding routing table ID. All routing entries referring to this interface will be cloned from the main routing table. All IP addresses of the interface will get an IP rule pointing to the corresponding routing table.
@@ -89,7 +89,7 @@ The parameter can be repeated to provide multiple interfaces.
 Deprecated alias for \-\-network.
 .It Fl h | Fl \-help
 Prints command help.
-.It Fl \-version
+.It Fl v | Fl \-version
 Prints program version.
 .El
 .\" ###### Exit status ######################################################
@@ -109,7 +109,7 @@ tool exits with 0 on success, and >0 in case of an error.
 .El
 .\" ###### Notes ############################################################
 .Sh NOTES
-This program is part of Dynamic Multi\-Homing Setup (DynMHS). The latest version of DynMHS can be found on the DynMHS Homepage at
+The latest version of Dynamic Multi\-Homing Setup (DynMHS) can be found on the DynMHS Homepage at
 .Lk https://www.nntb.no/\(tidreibh/dynmhs/ "Dynamic Multi\-Homing Setup (DynMHS) Homepage" .
 .\" ###### Authors ##########################################################
 .Sh AUTHORS
