@@ -1,5 +1,5 @@
 Name: dynmhs
-Version: 0.3.2
+Version: 0.3.3
 Release: 1
 Summary: Dynamic Multi-Homing Setup (DynMHS)
 Group: Applications/Internet
@@ -54,6 +54,8 @@ can take advantage of multi-homing for redundancy and load balancing.
 %doc
 
 %changelog
+* Sun May 31 2026 Thomas Dreibholz <dreibh@simula.no> - 0.3.3-1
+- New upstream release.
 * Wed Apr 29 2026 Thomas Dreibholz <dreibh@simula.no> - 0.3.2-1
 - New upstream release.
 * Tue Dec 09 2025 Thomas Dreibholz <dreibh@simula.no> - 0.3.1-1

@@ -1,3 +1,27 @@
+commit c2224c63195e3552a15004e6e1efaa3af96f9193
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sun May 31 14:23:28 2026 +0200
+
+    Parameter handling fix, and updated shell completion.
+
+commit 8402e1724b3843622ec5b53f6dae5302e131c2fb
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sun May 31 14:09:57 2026 +0200
+
+    Updated CI scripts
+
+commit 379a7bca37da2665cefe47081e029e0729f43b30
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sun May 31 14:08:53 2026 +0200
+
+    Improved manpage.
+
+commit 919e7f5107d71a0c868f7fda6ecca234c52bdc7c
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Wed Apr 29 17:06:22 2026 +0200
+
+    New release dynmhs-0.3.2.
+
 commit 94de9b06c6c89c44188ab207ea92f3afac6893fb
 Author: Thomas Dreibholz <dreibh@simula.no>
 Date:   Mon Apr 27 11:48:52 2026 +0200

@@ -1,7 +1,13 @@
-dynmhs (0.3.2-1ubuntu1) trixie; urgency=medium
+dynmhs (0.3.3-1ubuntu1) trixie; urgency=medium
 
   * New upstream release.
   * Closes: #1099114 (ITP).
+
+ -- Thomas Dreibholz <dreibh@simula.no>  Sun, 31 May 2026 17:00:33 +0200
+
+dynmhs (0.3.2-1ubuntu1) trixie; urgency=medium
+
+  * New upstream release.
   * debian/control: Updated standards version to 4.7.4.
 
  -- Thomas Dreibholz <dreibh@simula.no>  Wed, 29 Apr 2026 17:06:20 +0200
