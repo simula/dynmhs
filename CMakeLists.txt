@@ -87,30 +87,10 @@ ENDIF()
 #### OS DEPENDENT                                                        ####
 #############################################################################
 
-IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    MESSAGE(STATUS ${CMAKE_SYSTEM_NAME} " supported")
-
-ELSEIF (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-    MESSAGE(STATUS ${CMAKE_SYSTEM_NAME} " supported")
-    SET(CMAKE_REQUIRED_INCLUDES "/usr/local/include" "/usr/include")
-    SET(CMAKE_LIBRARY_PATH "/usr/local/lib" "/usr/local/lib/mariadb")
-    INCLUDE_DIRECTORIES("/usr/local/include")
-
-ELSEIF (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    MESSAGE(STATUS ${CMAKE_SYSTEM_NAME} " supported")
-    SET(CMAKE_REQUIRED_INCLUDES "/usr/local/include" "/usr/include" "/usr/local/opt/openssl/include")
-    SET(CMAKE_LIBRARY_PATH "/usr/local/lib")
-    INCLUDE_DIRECTORIES("/usr/local/include" "/usr/local/opt/openssl/include")
-
-ELSEIF (${CMAKE_SYSTEM_NAME} MATCHES "NetBSD")
-    MESSAGE(STATUS ${CMAKE_SYSTEM_NAME} " supported")
-    SET(CMAKE_REQUIRED_INCLUDES "/usr/pkg/include" "/usr/include" "/usr/local/include")
-    SET(CMAKE_LIBRARY_PATH "/usr/local/lib")
-    INCLUDE_DIRECTORIES("/usr/pkg/include" "/usr/local/include")
-
+IF (CMAKE_SYSTEM_NAME MATCHES "Linux")
+   MESSAGE(STATUS "${CMAKE_SYSTEM_NAME} supported")
 ELSE()
-    MESSAGE(FATAL_ERROR ${CMAKE_SYSTEM_NAME} " not supported (yet?)")
-
+   MESSAGE(FATAL_ERROR "${CMAKE_SYSTEM_NAME} not supported (yet?)")
 ENDIF()
 
 
@@ -129,7 +109,7 @@ IF (NOT Boost_FOUND)
 ELSE()
   INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 ENDIF()
-IF (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+IF (CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
    ADD_DEFINITIONS(-DBOOST_ALL_DYN_LINK)   # <<-- Required to handle BOOST Log link problem!
 ENDIF()
 
