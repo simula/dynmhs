@@ -1,3 +1,33 @@
+commit 1ab79ef274dd0f033af2d68b500c8efd03a2036b
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Thu Jun 11 18:28:29 2026 +0200
+
+    Updated build helper script.
+
+commit 6beeb413b892c55cac392183121f6cfb6da38f83
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Thu Jun 11 11:32:12 2026 +0200
+
+    Improved CMakeLists.txt.
+
+commit 68a9118b22bb053349882a0965300cb603413ec6
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Jun 9 08:37:35 2026 +0200
+
+    Updated build script.
+
+commit 99f38b2750bdb91bd9119ea26b9a69a574ca851f
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Tue Jun 9 08:36:10 2026 +0200
+
+    CMakeLists.txt clean-ups.
+
+commit 34281859750c4c75915db5269f586982094f180f
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sun May 31 17:00:34 2026 +0200
+
+    New release dynmhs-0.3.3.
+
 commit c2224c63195e3552a15004e6e1efaa3af96f9193
 Author: Thomas Dreibholz <dreibh@simula.no>
 Date:   Sun May 31 14:23:28 2026 +0200
