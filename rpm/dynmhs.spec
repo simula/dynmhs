@@ -8,7 +8,8 @@ URL: https://www.nntb.no/~dreibh/dynmhs/
 Source: https://www.nntb.no/~dreibh/dynmhs/download/%{name}-%{version}.tar.xz
 
 AutoReqProv: on
-BuildRequires: boost-devel
+# Fedora and OpenSuSE use different BOOST packaging:
+BuildRequires: ((libboost_log-devel and libboost_program_options-devel) or (boost-devel and boost-log and boost-program-options))
 BuildRequires: cmake
 BuildRequires: gcc
 BuildRequires: gcc-c++
