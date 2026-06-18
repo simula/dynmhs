@@ -12,7 +12,6 @@ BuildRequires: boost-devel
 BuildRequires: cmake
 BuildRequires: gcc
 BuildRequires: gcc-c++
-BuildRoot: %{_tmppath}/%{name}-%{version}-build
 
 Requires: iproute
 Recommends: hipercontracer
@@ -47,7 +46,8 @@ can take advantage of multi-homing for redundancy and load balancing.
 %{_bindir}/dynmhs
 %{_datadir}/bash-completion/completions/dynmhs
 %{_mandir}/man1/dynmhs.1.gz
-%{_sysconfdir}/dynmhs/dynmhs.conf
+%dir %attr(0755, root, root) %{_sysconfdir}/dynmhs
+%config(noreplace) %{_sysconfdir}/dynmhs/dynmhs.conf
 %{_prefix}/lib/systemd/system/dynmhs.service
 
 
