@@ -37,7 +37,7 @@ can take advantage of multi-homing for redundancy and load balancing.
 %setup -q
 
 %build
-%cmake -DCMAKE_INSTALL_PREFIX=/usr .
+%cmake -DCMAKE_INSTALL_PREFIX=/usr
 %cmake_build
 
 %install
