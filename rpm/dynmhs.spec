@@ -13,6 +13,7 @@ BuildRequires: ((libboost_log-devel and libboost_program_options-devel) or (boos
 BuildRequires: cmake
 BuildRequires: gcc
 BuildRequires: gcc-c++
+BuildRequires: systemd-rpm-macros
 
 Requires: iproute
 Recommends: hipercontracer
