@@ -1,5 +1,5 @@
 Name: dynmhs
-Version: 0.3.4
+Version: 0.3.5~rc0
 Release: 1
 Summary: Dynamic Multi-Homing Setup (DynMHS)
 Group: Applications/Internet
@@ -50,6 +50,18 @@ can take advantage of multi-homing for redundancy and load balancing.
 %dir %attr(0755, root, root) %{_sysconfdir}/dynmhs
 %config(noreplace) %{_sysconfdir}/dynmhs/dynmhs.conf
 %{_prefix}/lib/systemd/system/dynmhs.service
+
+%pre
+%service_add_pre dynmhs.service
+
+%post
+%service_add_post dynmhs.service
+
+%preun
+%service_del_preun dynmhs.service
+
+%postun
+%service_del_postun dynmhs.service
 
 
 %doc
