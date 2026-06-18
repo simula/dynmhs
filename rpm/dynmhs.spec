@@ -13,7 +13,6 @@ BuildRequires: ((libboost_log-devel and libboost_program_options-devel) or (boos
 BuildRequires: cmake
 BuildRequires: gcc
 BuildRequires: gcc-c++
-BuildRequires: systemd-rpm-macros
 
 Requires: iproute
 Recommends: hipercontracer
@@ -51,18 +50,6 @@ can take advantage of multi-homing for redundancy and load balancing.
 %dir %attr(0755, root, root) %{_sysconfdir}/dynmhs
 %config(noreplace) %{_sysconfdir}/dynmhs/dynmhs.conf
 %{_prefix}/lib/systemd/system/dynmhs.service
-
-%pre
-%service_add_pre dynmhs.service
-
-%post
-%service_add_post dynmhs.service
-
-%preun
-%service_del_preun dynmhs.service
-
-%postun
-%service_del_postun dynmhs.service
 
 
 %doc
