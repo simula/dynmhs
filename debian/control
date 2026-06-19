@@ -8,7 +8,8 @@ Vcs-Browser: https://github.com/simula/dynmhs
 Build-Depends: cmake,
                debhelper-compat (= 13),
                libboost-log-dev,
-               libboost-program-options-dev
+               libboost-program-options-dev,
+               libboost-thread-dev
 Standards-Version: 4.7.4
 Rules-Requires-Root: no
 

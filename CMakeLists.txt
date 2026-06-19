@@ -108,14 +108,14 @@ IF(CMAKE_VERSION VERSION_GREATER_EQUAL "3.30")
    # Use BoostConfig.cmake to find BOOST libraries, if possible.
    CMAKE_POLICY(SET CMP0167 NEW)
 ENDIF()
-FIND_PACKAGE(Boost COMPONENTS log program_options)
+FIND_PACKAGE(Boost COMPONENTS log program_options thread)
 IF (Boost_FOUND)
    MESSAGE(STATUS "BOOST libraries found:")
    MESSAGE(STATUS " Boost_VERSION:      ${Boost_VERSION}")
    MESSAGE(STATUS " Boost_LIBRARY_DIRS: ${Boost_LIBRARY_DIRS}")
    MESSAGE(STATUS " Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
    MESSAGE(STATUS " Boost_LIBRARIES:    ${Boost_LIBRARIES}")
-   FIND_PACKAGE(Boost REQUIRED COMPONENTS log program_options)
+   FIND_PACKAGE(Boost REQUIRED COMPONENTS log program_options thread)
 ELSE()
    MESSAGE(FATAL_ERROR "Cannot find BOOST libraries! Try:\n"
            " * Ubuntu/Debian: sudo apt install -y libboost-all-dev\n"
