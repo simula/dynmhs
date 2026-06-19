@@ -9,7 +9,7 @@ Source: https://www.nntb.no/~dreibh/dynmhs/download/%{name}-%{version}.tar.xz
 
 AutoReqProv: on
 # Fedora and OpenSuSE use different BOOST packaging:
-BuildRequires: ((libboost_log-devel and libboost_program_options-devel) or (boost-devel and boost-log and boost-program-options))
+BuildRequires: ((libboost_log-devel and libboost_program_options-devel and libboost_thread-devel) or (boost-devel and boost-log and boost-program-options and boost-thread))
 BuildRequires: cmake
 BuildRequires: gcc
 BuildRequires: gcc-c++
