@@ -1,6 +1,6 @@
 # Maintainer: Thomas Dreibholz <dreibh@simula.no>
 pkgname=dynmhs
-pkgver=0.3.4
+pkgver=0.3.5
 pkgrel=1
 pkgdesc="Dynamic Multi-Homing Setup (DynMHS)"
 url="https://www.nntb.no/~dreibh/dynmhs/"
@@ -17,7 +17,7 @@ makedepends="
 subpackages="
 	$pkgname-systemd:_systemd:noarch
 	$pkgname-bash-completion
-	doc
+	$pkgname-doc
 "
 source="https://www.nntb.no/~dreibh/dynmhs/download/$pkgname-$pkgver.tar.xz"
 builddir="$srcdir/$pkgname-$pkgver"
@@ -44,5 +44,5 @@ _systemd() {
 }
 
 sha512sums="
-d6ea8d1a7a45acae7f827728b41ff3900a1f80a7c1ef3d5c527523e2010db6a45ad489132b5c3708cea1878b83188af1982970f6184aaa61043023bee9e7256a  dynmhs-0.3.4.tar.xz
+86c838606ff74c523b684124f056664f7567bd5d07a84ea4c26ff074bc8b08e3b6d66ddcbba03a9323f561bcffc2415c27b62409a1c9129eb45d213676dba6ba  dynmhs-0.3.5.tar.xz
 "
