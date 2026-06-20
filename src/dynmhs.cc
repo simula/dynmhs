@@ -540,7 +540,13 @@ static bool sendQueuedRequests(const int sd)
       sockaddr_nl sa { };
       sa.nl_family = AF_NETLINK;
       const iovec  iov { (void*)message, messageLength };
-      const msghdr msg { &sa, sizeof(sa), (iovec*)&iov, 1, nullptr, 0, 0 };
+      const msghdr msg { .msg_name       = &sa,
+                         .msg_namelen    = sizeof(sa),
+                         .msg_iov        = (iovec*)&iov,
+                         .msg_iovlen     = 1,
+                         .msg_control    = nullptr,
+                         .msg_controllen = 0,
+                         .msg_flags      = 0 };
       if(sendmsg(sd, &msg, 0) < 0) {
          DMHS_LOG(error) << "sendmsg() failed: " << strerror(errno);
          return false;
@@ -562,7 +568,13 @@ static bool receiveNetlinkMessages(const int  sd,
    nlmsghdr    buffer[65536 / sizeof(nlmsghdr)];
    iovec       iov { buffer, sizeof(buffer) };
    sockaddr_nl sa;
-   msghdr      msg { &sa, sizeof(sa), &iov, 1, nullptr, 0, 0 };
+   msghdr      msg { .msg_name       = &sa,
+                     .msg_namelen    = sizeof(sa),
+                     .msg_iov        = (iovec*)&iov,
+                     .msg_iovlen     = 1,
+                     .msg_control    = nullptr,
+                     .msg_controllen = 0,
+                     .msg_flags      = 0 };
    const int   flags = (nonBlocking == true) ? MSG_DONTWAIT : 0;
    int         length;
 
