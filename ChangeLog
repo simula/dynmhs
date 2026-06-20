@@ -1,3 +1,81 @@
+commit 585d02ea0c0fa1cc7a051dd5fec675543f6a8c38
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sat Jun 20 19:58:08 2026 +0000
+
+    Made msghdr initialisation also work under Alpine Linux. Using C++20 now.
+
+commit eae2ba5557a61a126499685467229db1814e1017
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sat Jun 20 21:45:05 2026 +0200
+
+    Added APKBUILD file.
+
+commit ba395541d4c6cce9c413f0ff4e6b6a10a8cc9aab
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sat Jun 20 21:40:13 2026 +0200
+
+    Minor CMakeLists.txt update.
+
+commit 85c16eaf7a9a320ffa96a1ae7a7fe0466489326e
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Jun 19 15:56:56 2026 +0200
+
+    RPM spec dependency fix for OpenSUSE 16.0.
+
+commit 6565ae56f49735282a7dd095a982b0d4b9d69d5c
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Jun 19 15:04:26 2026 +0200
+
+    Dependency fix.
+
+commit 6a7e7e49643494d764607fdb3e83d9fb83d7cd8c
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Thu Jun 18 18:14:35 2026 +0200
+
+    Yet another RPM spec update.
+
+commit 40814b76dbb324fb313d72579e822d2ccd3416de
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Thu Jun 18 18:00:01 2026 +0200
+
+    Yet another RPM spec update.
+
+commit c93b01225b718589d08d97a8ab938de444e1eb00
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Thu Jun 18 17:52:01 2026 +0200
+
+    Yet another RPM spec update.
+
+commit b0eed386bd31b941f09d623a96d0491ca01f144a
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Thu Jun 18 17:39:26 2026 +0200
+
+    Further RPM spec improvement.
+
+commit 142a93241178aad12234c4c087f601f297a95c42
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Thu Jun 18 17:36:01 2026 +0200
+
+    Improved RPM spec.
+
+commit 66e154e3b4ef34aa0e5a89e4426fc2bf82851d3f
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Thu Jun 18 17:35:48 2026 +0200
+
+    Improved BOOST handling in CMakeLists.txt.
+
+commit dd2c790368b351c5a6ad74b7e08481eb4888ff48
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Thu Jun 18 17:24:14 2026 +0200
+
+    Improved RPM spec.
+
+commit ad049cb0f07d32229227adf4303a9a91615cb2fc
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Fri Jun 12 18:26:40 2026 +0200
+
+    New release dynmhs-0.3.4.
+
 commit 1ab79ef274dd0f033af2d68b500c8efd03a2036b
 Author: Thomas Dreibholz <dreibh@simula.no>
 Date:   Thu Jun 11 18:28:29 2026 +0200
