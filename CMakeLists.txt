@@ -36,7 +36,6 @@ SET(BUILD_MINOR "3")
 SET(BUILD_PATCH "5~rc0")
 SET(BUILD_VERSION ${BUILD_MAJOR}.${BUILD_MINOR}.${BUILD_PATCH})
 
-# HiPerConTracer needs at least C++17!
 SET(CMAKE_CXX_STANDARD 17)
 
 
@@ -120,7 +119,7 @@ ELSE()
    MESSAGE(FATAL_ERROR "Cannot find BOOST libraries! Try:\n"
            " * Ubuntu/Debian: sudo apt install -y libboost-all-dev\n"
            " * Fedora:        sudo dnf install -y boost-devel\n"
-           " * SuSE:          sudo zypper install -y boost-devel\n"
+           " * OpenSUSE:      sudo zypper install -y boost-devel\n"
            " * Alpine:        sudo apk add boost-dev\n"
            " * FreeBSD:       sudo pkg install -y boost\n"
            " * NetBSD:        sudo pkgin -y install boost\n"
