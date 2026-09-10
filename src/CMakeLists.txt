@@ -51,7 +51,7 @@ TARGET_LINK_LIBRARIES(dynmhs ${Boost_LIBRARIES})
 INSTALL(TARGETS dynmhs         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 INSTALL(FILES   dynmhs.1       DESTINATION         ${CMAKE_INSTALL_MANDIR}/man1)
 INSTALL(FILES   dynmhs.service DESTINATION         ${CMAKE_INSTALL_PREFIX}/lib/systemd/system)
-INSTALL(FILES   dynmhs.conf    DESTINATION         /etc/dynmhs)
+INSTALL(FILES   dynmhs.conf    DESTINATION         ${CMAKE_INSTALL_SYSCONFDIR}/dynmhs)
 INSTALL(FILES   dynmhs.bash-completion
         DESTINATION ${CMAKE_INSTALL_DATADIR}/bash-completion/completions
         RENAME      dynmhs)

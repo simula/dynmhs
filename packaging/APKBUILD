@@ -25,8 +25,8 @@ builddir="$srcdir/$pkgname-$pkgver"
 build() {
 	cd "$builddir"
 	cmake -B build -G Ninja \
-		-DCMAKE_INSTALL_PREFIX=/usr \
-		-DCMAKE_BUILD_TYPE=None .
+		-DCMAKE_INSTALL_PREFIX:PATH=/usr \
+		-DCMAKE_INSTALL_SYSCONFDIR:PATH=/etc
 	cmake --build build
 }
 
