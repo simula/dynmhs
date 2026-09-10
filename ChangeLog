@@ -1,3 +1,27 @@
+commit a19981116c0ed609939f56a743389f543180ddec
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Thu Sep 10 12:15:49 2026 +0200
+
+    Replaced hard-coded /etc by ${CMAKE_INSTALL_SYSCONFDIR} in CMakeLists.txt.
+
+commit 966c8cd466a4622a290b27295e6140ee8b279a5f
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Mon Jun 29 15:42:21 2026 +0200
+
+    Updated CI scripts
+
+commit 3a16736c77d13b9b1041e7294f449c9bb5c06306
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sat Jun 20 22:21:28 2026 +0200
+
+    Updated APKBUILD file.
+
+commit d6175955c84f106267f782e558e35df0403d5114
+Author: Thomas Dreibholz <dreibh@simula.no>
+Date:   Sat Jun 20 22:14:19 2026 +0200
+
+    New release dynmhs-0.3.5.
+
 commit 585d02ea0c0fa1cc7a051dd5fec675543f6a8c38
 Author: Thomas Dreibholz <dreibh@simula.no>
 Date:   Sat Jun 20 19:58:08 2026 +0000
