@@ -1,6 +1,6 @@
 # Maintainer: Thomas Dreibholz <dreibh@simula.no>
 pkgname=dynmhs
-pkgver=0.3.5
+pkgver=0.3.6
 pkgrel=1
 pkgdesc="Dynamic Multi-Homing Setup (DynMHS)"
 url="https://www.nntb.no/~dreibh/dynmhs/"
@@ -44,5 +44,5 @@ _systemd() {
 }
 
 sha512sums="
-86c838606ff74c523b684124f056664f7567bd5d07a84ea4c26ff074bc8b08e3b6d66ddcbba03a9323f561bcffc2415c27b62409a1c9129eb45d213676dba6ba  dynmhs-0.3.5.tar.xz
+9ac0bfb8dc1bfa3bb2a07ed9d5618390ab765c4252f39c345ca84d0232fff39c0f58b61a27bfb72ef0f87ce0f353c52544cd0f46746b70d232e8d76f9d2f0a94  dynmhs-0.3.6.tar.xz
 "
