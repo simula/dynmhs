@@ -107,14 +107,14 @@ IF(CMAKE_VERSION VERSION_GREATER_EQUAL "3.30")
    # Use BoostConfig.cmake to find BOOST libraries, if possible.
    CMAKE_POLICY(SET CMP0167 NEW)
 ENDIF()
-FIND_PACKAGE(Boost COMPONENTS log program_options thread)
+FIND_PACKAGE(Boost COMPONENTS log date_time thread iostreams filesystem program_options)
 IF (Boost_FOUND)
    MESSAGE(STATUS "BOOST libraries found:")
    MESSAGE(STATUS " Boost_VERSION:      ${Boost_VERSION}")
    MESSAGE(STATUS " Boost_LIBRARY_DIRS: ${Boost_LIBRARY_DIRS}")
    MESSAGE(STATUS " Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
    MESSAGE(STATUS " Boost_LIBRARIES:    ${Boost_LIBRARIES}")
-   FIND_PACKAGE(Boost REQUIRED COMPONENTS log program_options thread)
+   FIND_PACKAGE(Boost COMPONENTS log date_time thread iostreams filesystem program_options REQUIRED)
 ELSE()
    MESSAGE(FATAL_ERROR "Cannot find BOOST libraries! Try:\n"
            " * Ubuntu/Debian: sudo apt install -y libboost-all-dev\n"
@@ -124,6 +124,7 @@ ELSE()
            " * FreeBSD:       sudo pkg install -y boost\n"
            " * NetBSD:        sudo pkgin -y install boost\n"
            " * OpenBSD:       sudo pkg_add boost\n"
+           " * Solaris:       sudo pkg install library/boost\n"
            " * Apple:         brew install boost")
 ENDIF()
 
