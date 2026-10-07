@@ -1,9 +1,9 @@
 <h1 align="center">
  Dynamic Multi-Homing Setup&nbsp;(DynMHS)<br />
  <span style="font-size: 75%;">A Tool for the Dynamic Setup of Multi-Homing IP Routing Rules</span><br />
- <a href="https://www.nntb.no/~dreibh/dynmhs/">
+ <a href="https://www.nntb.no/~simula/dynmhs/">
   <img alt="DynMHS Logo" src="src/figures/Logo-DynMHS.svg" width="25%" /><br />
-  <span style="font-size: 75%;">https://www.nntb.no/~dreibh/dynmhs</span>
+  <span style="font-size: 75%;">https://www.nntb.no/~simula/dynmhs</span>
  </a>
 </h1>
 
@@ -199,7 +199,7 @@ Now, there is connectivity over both interfaces!
 
 # 📦 Binary Package Installation
 
-Please use the issue tracker at [https://github.com/dreibh/dynmhs/issues](https://github.com/dreibh/dynmhs/issues) to report bugs and issues!
+Please use the issue tracker at [https://github.com/simula/dynmhs/issues](https://github.com/simula/dynmhs/issues) to report bugs and issues!
 
 ## Ubuntu Linux
 
@@ -329,12 +329,12 @@ Optionally, for installation to the standard paths (usually under `/usr/local`):
 sudo make install
 ```
 
-Note: The script [`ci/get-dependencies`](https://github.com/dreibh/dynmhs/blob/master/ci/get-dependencies) automatically installs the build dependencies under Debian/Ubuntu Linux, Fedora Linux, OpenSUSE Linux, Alpine Linux, and Homebrew. For manual handling of the build dependencies, take a look at the packaging configuration files:
+Note: The script [`ci/get-dependencies`](https://github.com/simula/dynmhs/blob/master/ci/get-dependencies) automatically installs the build dependencies under Debian/Ubuntu Linux, Fedora Linux, OpenSUSE Linux, Alpine Linux, and Homebrew. For manual handling of the build dependencies, take a look at the packaging configuration files:
 
-* [`debian/control`](https://github.com/dreibh/dynmhs/blob/master/debian/control) (Debian/Ubuntu Linux),
-* [`dynmhs.spec`](https://github.com/dreibh/dynmhs/blob/master/rpm/dynmhs.spec) (Fedora Linux, OpenSUSE Linux),
-* [`APKBUILD`](https://github.com/dreibh/dynmhs/blob/master/packaging/APKBUILD) (Alpine Linux), and
-* [`dynmhs.rb`](https://github.com/dreibh/dynmhs/blob/master/packaging/dynmhs.rb) (Homebrew).
+* [`debian/control`](https://github.com/simula/dynmhs/blob/master/debian/control) (Debian/Ubuntu Linux),
+* [`dynmhs.spec`](https://github.com/simula/dynmhs/blob/master/rpm/dynmhs.spec) (Fedora Linux, OpenSUSE Linux),
+* [`APKBUILD`](https://github.com/simula/dynmhs/blob/master/packaging/APKBUILD) (Alpine Linux), and
+* [`dynmhs.rb`](https://github.com/simula/dynmhs/blob/master/packaging/dynmhs.rb) (Homebrew).
 
 Contributions:
 
