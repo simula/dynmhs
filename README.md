@@ -81,7 +81,7 @@ The expectation is that, according to the chosen source address, a packet is rou
    <span class="at">-D</span> 8.8.8.8 <span class="at">-D</span> 2001:4860:4860::8888
 </code></pre>
 
-Connectivity is always over the primary interface, i.e.&nbsp;172.30.255.4 and&nbsp;fdff:b44d:605c:0:a00:27ff:fedb:ad69. The reason is: This default route has the lowest metric! Also, simply using the same metric for both routes does *not* fix the issue. Then, just the first default route in the routing table would get used.
+Connectivity is always over the primary interface, i.e., 172.30.255.4 and&nbsp;fdff:b44d:605c:0:a00:27ff:fedb:ad69. The reason is: This default route has the lowest metric! Also, simply using the same metric for both routes does *not* fix the issue. Then, just the first default route in the routing table would get used.
 
 To get the setup working as expected, it is necessary to configure separate routing tables for each network, and routing rules to select a routing table according to the *source* IP address. For example:
 
@@ -199,11 +199,11 @@ Now, there is connectivity over both interfaces!
 
 # 📦 Binary Package Installation
 
-Please use the issue tracker at [https://github.com/simula/dynmhs/issues](https://github.com/simula/dynmhs/issues) to report bugs and issues!
+Please use the issue tracker at [https://github.com/dreibh/dynmhs/issues](https://github.com/dreibh/dynmhs/issues) to report bugs and issues!
 
 ## Ubuntu Linux
 
-For ready-to-install Ubuntu Linux packages of DynMHS, see [Launchpad PPA for Thomas Dreibholz](https://launchpad.net/~dreibh/+archive/ubuntu/ppa/+packages?field.name_filter=dynmhs&field.status_filter=published&field.series_filter=)!
+For ready-to-install [Ubuntu Linux](https://ubuntu.com/) packages of DynMHS, see the [Launchpad PPA for Thomas Dreibholz](https://launchpad.net/~dreibh/+archive/ubuntu/ppa/+packages?field.name_filter=dynmhs&field.status_filter=published&field.series_filter=)!
 
 ```bash
 sudo apt-add-repository -sy ppa:dreibh/ppa
@@ -211,19 +211,103 @@ sudo apt-get update
 sudo apt-get install dynmhs
 ```
 
+## Debian Linux
+
+For ready-to-install [Debian Linux](https://www.debian.org/) packages of DynMHS, see the [Open Build Service PPA for Thomas Dreibholz](https://build.opensuse.org/project/show/home:dreibh)!
+
+Add the PPA repository:
+
+```bash
+. /etc/os-release
+DISTRIBUTION="Debian_${VERSION_ID:-$([ "${VERSION_CODENAME:-}" = sid ] && echo Unstable || echo Testing)}"
+URL="https://download.opensuse.org/repositories/home:/dreibh/${DISTRIBUTION}"
+KEY="/etc/apt/keyrings/dreibh-obs.gpg"
+
+curl -fsSL "${URL}/Release.key" | sudo gpg --batch --yes --dearmor -o "${KEY}"
+printf "deb [signed-by=%s] %s/ /\ndeb-src [signed-by=%s] %s/ /\n" "${KEY}" "${URL}" "${KEY}" "${URL}" | \
+   sudo tee /etc/apt/sources.list.d/obs-dreibh.list
+sudo apt update
+```
+
+Then, install DynMHS:
+
+```bash
+sudo apt-get install dynmhs
+```
+
 ## Fedora Linux
 
-For ready-to-install Fedora Linux packages of DynMHS, see [COPR PPA for Thomas Dreibholz](https://copr.fedorainfracloud.org/coprs/dreibh/ppa/package/dynmhs/)!
+For ready-to-install [Fedora Linux](https://fedoraproject.org/) packages of DynMHS, see the [COPR PPA for Thomas Dreibholz](https://copr.fedorainfracloud.org/coprs/dreibh/ppa/package/dynmhs/)!
 
 ```bash
 sudo dnf copr enable -y dreibh/ppa
 sudo dnf install dynmhs
 ```
 
+## OpenSUSE Linux
+
+For ready-to-install [OpenSUSE Linux](https://www.opensuse.org/) packages of DynMHS, see the [Open Build Service PPA for Thomas Dreibholz](https://build.opensuse.org/project/show/home:dreibh)!
+
+Add the PPA repository:
+
+```bash
+. /etc/os-release
+[[ $VERSION_ID =~ ^[0-9]+\.[0-9]+$ ]] && DISTRIBUTION="${VERSION_ID}" || DISTRIBUTION="${NAME// /_}"
+URL="https://download.opensuse.org/repositories/home:/dreibh/${DISTRIBUTION}"
+rpm --import "${URL}/repodata/repomd.xml.key"
+zypper addrepo -f "${URL}/" dreibh-obs
+```
+
+Then, install DynMHS:
+
+```bash
+sudo zypper install dynmhs
+```
+
+## Alpine Linux
+
+For ready-to-install [Alpine Linux](https://alpinelinux.org/) packages of DynMHS, see the [Open Build Service PPA for Thomas Dreibholz](https://build.opensuse.org/project/show/home:dreibh)!
+
+Add the PPA repository:
+
+```bash
+DISTRIBUTION="Alpine_Latest_community"
+URL="https://download.opensuse.org/repositories/home:/dreibh"
+wget -O \
+   /etc/apk/keys/home:dreibh@build.opensuse.org-527a4e72.rsa.pub \
+   "${URL}/${DISTRIBUTION}/x86_64/home:dreibh%40build.opensuse.org-527a4e72.rsa.pub"
+if ! grep -q "^${URL}/${DISTRIBUTION}" /etc/apk/repositories ; then
+   echo "${URL}/${DISTRIBUTION}" | sudo tee -a /etc/apk/repositories
+fi
+```
+
+Then, install DynMHS:
+
+```bash
+sudo apk add dynmhs
+```
+
+## Homebrew (Linux only)
+
+For the [Homebrew](https://brew.sh/) formula of DynMHS, see [Thomas Dreibholz's Homebrew Tap](https://github.com/dreibh/homebrew-tap)!
+
+Add tap:
+
+```bash
+brew tap dreibh/tap
+brew trust dreibh/tap
+```
+
+Then, install DynMHS:
+
+```bash
+brew install dynmhs
+```
+
 
 # 💾 Build from Sources
 
-DynMHS is released under the [GNU General Public Licence&nbsp;(GPL)](https://www.gnu.org/licenses/gpl-3.0.en.html#license-text).
+DynMHS is released under the [GNU General Public License&nbsp;(GPL)](https://www.gnu.org/licenses/gpl-3.0.en.html#license-text).
 
 Please use the issue tracker at [https://github.com/simula/dynmhs/issues](https://github.com/simula/dynmhs/issues) to report bugs and issues!
 
@@ -245,7 +329,12 @@ Optionally, for installation to the standard paths (usually under `/usr/local`):
 sudo make install
 ```
 
-Note: The script [`ci/get-dependencies`](https://github.com/simula/dynmhs/blob/master/ci/get-dependencies) automatically  installs the build dependencies under Debian/Ubuntu Linux, Fedora Linux, and FreeBSD. For manual handling of the build dependencies, see the packaging configuration in [`debian/control`](https://github.com/simula/dynmhs/blob/master/debian/control) (Debian/Ubuntu Linux), and [`dynmhs.spec`](https://github.com/simula/dynmhs/blob/master/rpm/dynmhs.spec) (Fedora Linux).
+Note: The script [`ci/get-dependencies`](https://github.com/dreibh/dynmhs/blob/master/ci/get-dependencies) automatically installs the build dependencies under Debian/Ubuntu Linux, Fedora Linux, OpenSUSE Linux, Alpine Linux, and Homebrew. For manual handling of the build dependencies, take a look at the packaging configuration files:
+
+* [`debian/control`](https://github.com/dreibh/dynmhs/blob/master/debian/control) (Debian/Ubuntu Linux),
+* [`dynmhs.spec`](https://github.com/dreibh/dynmhs/blob/master/rpm/dynmhs.spec) (Fedora Linux, OpenSUSE Linux),
+* [`APKBUILD`](https://github.com/dreibh/dynmhs/blob/master/packaging/APKBUILD) (Alpine Linux), and
+* [`dynmhs.rb`](https://github.com/dreibh/dynmhs/blob/master/packaging/dynmhs.rb) (Homebrew).
 
 Contributions:
 
@@ -266,7 +355,8 @@ See [https://www.nntb.no/~simula/dynmhs/#current-stable-release](https://www.nnt
 
 * [HiPerConTracer – High-Performance Connectivity Tracer](https://www.nntb.no/~dreibh/hipercontracer/)
 * [NetPerfMeter – A TCP/MPTCP/UDP/SCTP/DCCP Network Performance Meter Tool](https://www.nntb.no/~dreibh/netperfmeter/)
-* [SubNetCalc – An IPv4/IPv6 Subnet Calculator](https://www.nntb.no/~dreibh/dynmhs/)
+* [SubNetCalc – An IPv4/IPv6 Subnet Calculator](https://www.nntb.no/~dreibh/subnetcalc/)
 * [System-Tools – Tools for Basic System Management](https://www.nntb.no/~dreibh/system-tools/)
 * [Virtual Machine Image Builder and System Installation Scripts](https://www.nntb.no/~dreibh/vmimage-builder-scripts/)
 * [Wireshark](https://www.wireshark.org/)
+
