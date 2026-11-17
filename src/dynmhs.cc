@@ -29,8 +29,10 @@
 // Contact: dreibh@simula.no
 
 #include <chrono>
+#include <cstdint>
 #include <cstring>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -124,10 +126,10 @@ static void handleLinkEvent(const nlmsghdr* message)
    const ifinfomsg* ifinfo = (const ifinfomsg*)NLMSG_DATA(message);
    unsigned int     length = message->nlmsg_len - NLMSG_LENGTH(sizeof(*ifinfo));
    const char*      eventName;
-   if(message->nlmsg_type != RTM_NEWLINK) {
+   if(message->nlmsg_type == RTM_NEWLINK) {
       eventName = "RTM_NEWLINK";
    }
-   else if(message->nlmsg_type != RTM_DELLINK) {
+   else if(message->nlmsg_type == RTM_DELLINK) {
       eventName = "RTM_DELLINK";
    }
    else {
@@ -157,10 +159,10 @@ static void handleAddressEvent(const nlmsghdr* message)
    const ifaddrmsg*   ifa       = (const ifaddrmsg*)NLMSG_DATA(message);
    const unsigned int ifalength = message->nlmsg_len;
    const char*        eventName;
-   if(message->nlmsg_type != RTM_NEWADDR) {
+   if(message->nlmsg_type == RTM_NEWADDR) {
       eventName = "RTM_NEWADDR";
    }
-   else if(message->nlmsg_type != RTM_DELADDR) {
+   else if(message->nlmsg_type == RTM_DELADDR) {
       eventName = "RTM_DELADDR";
    }
    else {
@@ -172,25 +174,41 @@ static void handleAddressEvent(const nlmsghdr* message)
    char                     ifNameBuffer[IF_NAMESIZE];
    const char*              ifName;
    boost::asio::ip::address address;
-   const char*              addressPtr  = nullptr;
-   bool                     isLinkLocal = false;
-   const unsigned int       prefixLength = ifa->ifa_prefixlen;
-   unsigned int             length = ifalength - NLMSG_LENGTH(sizeof(*ifa));
+   const char*              addressPtr      = nullptr;
+   bool                     hasLocalAddress = false;
+   bool                     isLinkLocal     = false;
+   const unsigned int       prefixLength    = ifa->ifa_prefixlen;
+   unsigned int             length          = ifalength - NLMSG_LENGTH(sizeof(*ifa));
    for(const rtattr* rta = IFA_RTA(ifa); RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
       switch(rta->rta_type) {
          case IFA_ADDRESS:
-            if(ifa->ifa_family == AF_INET) {
-               address    = boost::asio::ip::make_address_v4(*((boost::asio::ip::address_v4::bytes_type*)RTA_DATA(rta)));
-               addressPtr = (const char*)RTA_DATA(rta);
+            if(!hasLocalAddress) {
+               if((ifa->ifa_family == AF_INET) && (RTA_PAYLOAD(rta) >= 4)) {
+                  address    = boost::asio::ip::make_address_v4(*((boost::asio::ip::address_v4::bytes_type*)RTA_DATA(rta)));
+                  addressPtr = (const char*)RTA_DATA(rta);
+               }
+               else if((ifa->ifa_family == AF_INET6) && (RTA_PAYLOAD(rta) >= 16)) {
+                  const boost::asio::ip::address_v6 a =
+                     boost::asio::ip::make_address_v6(*((boost::asio::ip::address_v6::bytes_type*)RTA_DATA(rta)));
+                  isLinkLocal = a.is_link_local();
+                  address     = a;
+                  addressPtr  = (const char*)RTA_DATA(rta);
+               }
             }
-            else if(ifa->ifa_family == AF_INET6) {
+          break;
+         case IFA_LOCAL:
+            if((ifa->ifa_family == AF_INET) && (RTA_PAYLOAD(rta) >= 4)) {
+               address         = boost::asio::ip::make_address_v4(*((boost::asio::ip::address_v4::bytes_type*)RTA_DATA(rta)));
+               addressPtr      = (const char*)RTA_DATA(rta);
+               hasLocalAddress = true;
+            }
+            else if((ifa->ifa_family == AF_INET6) && (RTA_PAYLOAD(rta) >= 16)) {
                const boost::asio::ip::address_v6 a =
                   boost::asio::ip::make_address_v6(*((boost::asio::ip::address_v6::bytes_type*)RTA_DATA(rta)));
-               if(a.is_link_local()) {
-                  isLinkLocal = true;
-               }
-               address    = a;
-               addressPtr = (const char*)RTA_DATA(rta);
+               isLinkLocal     = a.is_link_local();
+               address         = a;
+               addressPtr      = (const char*)RTA_DATA(rta);
+               hasLocalAddress = true;
             }
           break;
       }
@@ -287,10 +305,10 @@ static void handleRouteEvent(const nlmsghdr* message)
    const rtmsg*       rtm           = (const rtmsg*)NLMSG_DATA(message);
    const unsigned int rtmLength     = message->nlmsg_len;
    const char*        eventName;
-   if(message->nlmsg_type != RTM_NEWROUTE) {
+   if(message->nlmsg_type == RTM_NEWROUTE) {
       eventName = "RTM_NEWROUTE";
    }
-   else if(message->nlmsg_type != RTM_DELROUTE) {
+   else if(message->nlmsg_type == RTM_DELROUTE) {
       eventName = "RTM_DELROUTE";
    }
    else {
@@ -304,49 +322,58 @@ static void handleRouteEvent(const nlmsghdr* message)
          boost::asio::ip::address(boost::asio::ip::address_v6());
    const unsigned int       destinationPrefixLength = rtm->rtm_dst_len;
    boost::asio::ip::address gateway;
-   bool                     hasGateway = false;
-   unsigned int*            tablePtr   = nullptr;
-   int                      metric     = -1;
-   int                      oifIndex   = -1;
+   bool                     hasGateway  = false;
+   const uint32_t*          tablePtr    = nullptr;
+   int                      metric      = -1;
+   int                      oifIndex    = -1;
    char                     oifNameBuffer[IF_NAMESIZE];
-   const char*              oifName;
-   int                      length = rtmLength - NLMSG_LENGTH(sizeof(*rtm));
+   const char*              oifName     = "UNKNOWN";
+   int                      length      = rtmLength - NLMSG_LENGTH(sizeof(*rtm));
    for(const rtattr* rta = RTM_RTA(rtm); RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
       switch(rta->rta_type) {
          case RTA_DST:
-            if(rtm->rtm_family == AF_INET) {
+            if((rtm->rtm_family == AF_INET) && (RTA_PAYLOAD(rta) >= 4)) {
                destination = boost::asio::ip::make_address_v4(*((boost::asio::ip::address_v4::bytes_type*)RTA_DATA(rta)));
             }
-            else if(rtm->rtm_family == AF_INET6) {
+            else if((rtm->rtm_family == AF_INET6) && (RTA_PAYLOAD(rta) >= 16)) {
                destination = boost::asio::ip::make_address_v6(*((boost::asio::ip::address_v6::bytes_type*)RTA_DATA(rta)));
             }
           break;
          case RTA_GATEWAY:
-            if(rtm->rtm_family == AF_INET) {
-               gateway = boost::asio::ip::make_address_v4(*((boost::asio::ip::address_v4::bytes_type*)RTA_DATA(rta)));
+            if((rtm->rtm_family == AF_INET) && (RTA_PAYLOAD(rta) >= 4)) {
+               gateway    = boost::asio::ip::make_address_v4(*((boost::asio::ip::address_v4::bytes_type*)RTA_DATA(rta)));
+               hasGateway = true;
             }
-            else if(rtm->rtm_family == AF_INET6) {
-               gateway = boost::asio::ip::make_address_v6(*((boost::asio::ip::address_v6::bytes_type*)RTA_DATA(rta)));
+            else if((rtm->rtm_family == AF_INET6) && (RTA_PAYLOAD(rta) >= 16)) {
+               gateway    = boost::asio::ip::make_address_v6(*((boost::asio::ip::address_v6::bytes_type*)RTA_DATA(rta)));
+               hasGateway = true;
             }
           break;
          case RTA_TABLE:
-            tablePtr = (unsigned int*)RTA_DATA(rta);
+            if(RTA_PAYLOAD(rta) >= sizeof(uint32_t)) {
+               tablePtr = (const uint32_t*)RTA_DATA(rta);
+            }
           break;
-         case RTA_METRICS:
-            metric = *(int*)RTA_DATA(rta);
+         case RTA_PRIORITY:
+            if(RTA_PAYLOAD(rta) >= sizeof(uint32_t)) {
+               metric = (int)(*(const uint32_t*)RTA_DATA(rta));
+            }
           break;
          case RTA_OIF:
-            oifIndex = *(int*)RTA_DATA(rta);
-            if(oifIndex >= 0) {
-               oifName = if_indextoname(oifIndex, (char*)&oifNameBuffer);
-               if(oifName == nullptr) {
-                  oifName = "UNKNOWN";
+            if(RTA_PAYLOAD(rta) >= sizeof(int)) {
+               oifIndex = *(const int*)RTA_DATA(rta);
+               if(oifIndex >= 0) {
+                  oifName = if_indextoname(oifIndex, (char*)&oifNameBuffer);
+                  if(oifName == nullptr) {
+                     oifName = "UNKNOWN";
+                  }
                }
             }
           break;
       }
    }
    assure(tablePtr != nullptr);
+   const uint32_t routeTable = *tablePtr;
 
 
    // ====== Show status =================================================
@@ -362,9 +389,9 @@ static void handleRouteEvent(const nlmsghdr* message)
          scopeName = "UNKNOWN";
        break;
    }
-   DMHS_LOG(trace) << boost::format("Route event: event=%s: table=%d destination=%s scope=%s %s if=%s (%d) %s")
+   DMHS_LOG(trace) << boost::format("Route event: event=%s: table=%u destination=%s scope=%s %s if=%s (%d) %s")
                          % eventName
-                         % *tablePtr
+                         % routeTable
                          % (destination.to_string() + "/" +
                               std::to_string(destinationPrefixLength))
                          % scopeName
@@ -375,34 +402,34 @@ static void handleRouteEvent(const nlmsghdr* message)
 
 
    // ====== Check whether an update in the custom table is necessary =======
-   bool     updateNecessary = false;
-   uint16_t updateType;
+   bool         updateNecessary = false;
+   uint16_t     updateType      = 0;
+   unsigned int targetTable     = 0;
    if( (Mode == Operational) &&
-       (*tablePtr == RT_TABLE_MAIN) &&
-       ( (message->nlmsg_type == RTM_NEWROUTE) ||
-         (message->nlmsg_type == RTM_DELROUTE) ) ) {
+       (routeTable == RT_TABLE_MAIN) &&
+       (oifIndex >= 0) ) {
       /* In Operational mode, synchronise a routing change from the main table
        * into the custom table. Only changes in the main table are of interest
        * here! */
       // ------ Find custom table in the InterfaceMap -----------------------
       const auto found = InterfaceMap.find(oifName);
       if(found != InterfaceMap.end()) {
-          const unsigned int customTable = found->second;
-         DMHS_LOG(debug) << "Update of route in table " << customTable << " is necessary ...";
+         targetTable = found->second;
+         DMHS_LOG(debug) << "Update of route in table " << targetTable << " is necessary ...";
          updateNecessary = true;
          updateType      = message->nlmsg_type;
-         *tablePtr       = customTable;   // <<-- clone entry into custom table
       }
    }
    else if( (Mode == Reset) &&
-            (*tablePtr != RT_TABLE_MAIN) ) {
+            (routeTable != RT_TABLE_MAIN) ) {
       /* In Reset mode, delete all routing table entries in the custom tables.
        * Here, only the custom tables are of interest! */
       // ------ Check if entry belongs to custom table in the InterfaceMap --
       for(auto iterator = InterfaceMap.begin(); iterator != InterfaceMap.end(); iterator++) {
          const unsigned int customTable = iterator->second;
-         if(*tablePtr == customTable) {
+         if(routeTable == customTable) {
             DMHS_LOG(trace) << "Removing route from table " << customTable << " ...";
+            targetTable     = customTable;
             updateNecessary = true;
             updateType      = RTM_DELROUTE;
             break;
@@ -419,9 +446,20 @@ static void handleRouteEvent(const nlmsghdr* message)
 
       updateMessage->nlmsg_type  = updateType;
       updateMessage->nlmsg_flags = (updateType == RTM_NEWROUTE) ?
-         NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL | NLM_F_ACK :
+         NLM_F_REQUEST | NLM_F_CREATE | NLM_F_REPLACE | NLM_F_ACK :
          NLM_F_REQUEST | NLM_F_ACK;
       updateMessage->nlmsg_seq   = ++SeqNumber;
+
+      // ------ Set destination routing table on the copied message ---------
+      rtmsg* updateRtm = (rtmsg*)NLMSG_DATA(updateMessage);
+      updateRtm->rtm_table = (targetTable < 256) ? targetTable : RT_TABLE_COMPAT;
+      int updateLength = updateMessage->nlmsg_len - NLMSG_LENGTH(sizeof(*updateRtm));
+      for(rtattr* rta = RTM_RTA(updateRtm); RTA_OK(rta, updateLength); rta = RTA_NEXT(rta, updateLength)) {
+         if((rta->rta_type == RTA_TABLE) && (RTA_PAYLOAD(rta) >= sizeof(uint32_t))) {
+            *(uint32_t*)RTA_DATA(rta) = targetTable;
+            break;
+         }
+      }
 
       RequestQueue.push(std::pair<const nlmsghdr*, size_t>(
          updateMessage, messageLength));
@@ -438,10 +476,10 @@ static void handleRuleEvent(const nlmsghdr* message)
    const fib_rule_hdr* frh           = (const fib_rule_hdr*)NLMSG_DATA(message);
    const unsigned int  frhLength     = message->nlmsg_len;
    const char*         eventName;
-   if(message->nlmsg_type != RTM_NEWRULE) {
+   if(message->nlmsg_type == RTM_NEWRULE) {
       eventName = "RTM_NEWRULE";
    }
-   else if(message->nlmsg_type != RTM_DELRULE) {
+   else if(message->nlmsg_type == RTM_DELRULE) {
       eventName = "RTM_DELRULE";
    }
    else {
@@ -449,17 +487,21 @@ static void handleRuleEvent(const nlmsghdr* message)
    }
 
    // ====== Parse attributes ===============================================
-   unsigned int* tablePtr   = nullptr;
-   unsigned int  priority   = 0;
-   unsigned int  length     = frhLength - NLMSG_LENGTH(sizeof(*frh));
-   for(const rtattr* rta = (const rtattr*)((char*)frh + NLMSG_ALIGN(sizeof(fib_rule_hdr)));
+   const unsigned int* tablePtr = nullptr;
+   unsigned int        priority = 0;
+   unsigned int        length   = frhLength - NLMSG_LENGTH(sizeof(*frh));
+   for(const rtattr* rta = (const rtattr*)((const char*)frh + NLMSG_ALIGN(sizeof(fib_rule_hdr)));
        RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
       switch(rta->rta_type) {
          case FRA_TABLE:
-            tablePtr = (unsigned int*)RTA_DATA(rta);
+            if(RTA_PAYLOAD(rta) >= sizeof(unsigned int)) {
+               tablePtr = (const unsigned int*)RTA_DATA(rta);
+            }
           break;
          case FRA_PRIORITY:
-            priority = *(unsigned int*)RTA_DATA(rta);
+            if(RTA_PAYLOAD(rta) >= sizeof(unsigned int)) {
+               priority = *(const unsigned int*)RTA_DATA(rta);
+            }
           break;
       }
    }
@@ -553,7 +595,7 @@ static bool sendQueuedRequests(const int sd)
       }
 
       // ------ Remove Netlink request from queue ---------------------------
-      delete [] message;
+      delete [] (const char*)message;
       RequestQueue.pop();
    }
    return true;
@@ -635,7 +677,7 @@ static bool receiveNetlinkMessages(const int  sd,
              break;
             case RTM_NEWRULE:
             case RTM_DELRULE:
-               if(header->nlmsg_len >= NLMSG_LENGTH(sizeof(rtmsg))) {
+               if(header->nlmsg_len >= NLMSG_LENGTH(sizeof(fib_rule_hdr))) {
                   handleRuleEvent(header);
                }
              break;
@@ -647,7 +689,7 @@ static bool receiveNetlinkMessages(const int  sd,
       }
    }
 
-   if( (length < 0) && (errno == EWOULDBLOCK) ) {
+   if( (length < 0) && ((errno == EWOULDBLOCK) || (errno == EAGAIN)) ) {
      return true;
    }
    return false;
@@ -668,9 +710,10 @@ static bool waitForAcknowledgement(const int          sd,
    std::chrono::time_point<std::chrono::steady_clock> t2;
    while(WaitingForAcknowlegement) {
       t2 = std::chrono::steady_clock::now();
-      int ms = timeout - std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-      if(ms < 1) {
-         ms = 0;
+      const int ms = timeout - std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+      if(ms <= 0) {
+         WaitingForAcknowlegement = false;
+         return false;
       }
       pollfd pfd[1];
       pfd[0].fd     = sd;
@@ -679,9 +722,16 @@ static bool waitForAcknowledgement(const int          sd,
       if(events > 0) {
          receiveNetlinkMessages(sd, true);
       }
+      else if(events < 0) {
+         if(errno == EINTR) {
+            continue;
+         }
+         WaitingForAcknowlegement = false;
+         return false;
+      }
    }
 
-   return (WaitingForAcknowlegement == false);
+   return true;
 }
 
 
@@ -738,11 +788,9 @@ static bool cleanUpDynMHS(int sd)
       if(!RequestQueue.empty()) {
          // The removal requests are queued now. Send them, then wait until
          // they are acknowledged.
-         if(!RequestQueue.empty()) {
-            sendQueuedRequests(sd);
-            if(!waitForAcknowledgement(sd, SeqNumber, NETLINK_TIMEOUT)) {
-               DMHS_LOG(error) << "Timeout waiting for acknowledgement";
-            }
+         sendQueuedRequests(sd);
+         if(!waitForAcknowledgement(sd, SeqNumber, NETLINK_TIMEOUT)) {
+            DMHS_LOG(error) << "Timeout waiting for acknowledgement";
          }
       }
    }
@@ -751,12 +799,48 @@ static bool cleanUpDynMHS(int sd)
    while(!RequestQueue.empty()) {
       std::pair<const nlmsghdr*, size_t>& command = RequestQueue.front();
       const nlmsghdr* message = command.first;
-      delete [] message;
+      delete [] (const char*)message;
       RequestQueue.pop();
    }
 
    return true;
 }
+
+
+// ###### Version ###########################################################
+[[ noreturn ]] static void version()
+{
+   std::cout << "Dynamic Multi-Homing Setup (DynMHS), Version " << PROJECT_VERSION << "\n";
+   std::exit(0);
+}
+
+
+// ------ BEGIN-OF-USAGE-BLOCK ------
+// ###### Usage #############################################################
+[[ noreturn ]] static void usage(
+   const char*                                        program,
+   const boost::program_options::options_description& commandLineOptions,
+   const int                                          exitCode)
+{
+   const std::string manpage(std::string("\x1b[1m") +
+                             std::filesystem::path(program).stem().string() +
+                             std::string("\x1b[0m"));
+   const std::string homepage(std::string("[\x1b[1m\x1b]8;;") +
+                              std::string(PROJECT_HOMEPAGE_URL) +
+                              "\a" + std::string(PROJECT_HOMEPAGE_URL) + "\a" +
+                              std::string("\x1b]8;;\a\x1b[0m]"));
+   const std::string repository(std::string("[\x1b[1m\x1b]8;;") +
+                                std::string(PROJECT_SOURCE_URL) +
+                                "\a" + std::string(PROJECT_SOURCE_URL) + "\a" +
+                                std::string("\x1b]8;;\a\x1b[0m]"));
+
+   std::cerr << "Usage: " << program << " parameters" << "\n"
+             << commandLineOptions << "\n"
+             << std::format("For further information, see the man page for {}, read the documentation at {}, examine the source code at {}, or consult your favourite LLM.",
+                            manpage, homepage, repository) << "\n";
+   std::exit(exitCode);
+}
+// ------ END-OF-USAGE-BLOCK ------
 
 
 
@@ -797,12 +881,12 @@ int main(int argc, char** argv)
 
       ( "network,N",
            boost::program_options::value<std::vector<std::string>>(),
-           "Network to rule mapping" );
+           "Network to rule mapping" )
 
       // ------ Deprecated! -------------------------------------------------
       ( "interface,I",
            boost::program_options::value<std::vector<std::string>>(),
-           "Network to rule mapping" );
+           "Network to rule mapping (deprecated!)" );
       // ------ Deprecated! -------------------------------------------------
 
 
@@ -821,17 +905,14 @@ int main(int argc, char** argv)
    }
    catch(std::exception& e) {
       std::cerr << "ERROR: Bad parameter: " << e.what() << "\n";
-      return 1;
+      usage(argv[0], commandLineOptions, 1);
    }
 
    if(commandLineVariablesMap.count("help")) {
-      std::cerr << "Usage: " << argv[0] << " parameters" << "\n"
-                << commandLineOptions;
-      return 1;
+      usage(argv[0], commandLineOptions, 0);
    }
    else if(commandLineVariablesMap.count("version")) {
-      std::cout << "Dynamic Multi-Homing Setup (DynMHS), Version " << DYNMHS_VERSION << "\n";
-      return 0;
+      version();
    }
 
    // ====== Handle parameters from configuration file ======================
@@ -847,7 +928,7 @@ int main(int argc, char** argv)
       boost::program_options::options_description configFileOptions;
       configFileOptions.add_options()
          ( "LOGLEVEL",
-            boost::program_options::value<unsigned int>(&logLevel)->default_value(boost::log::trivial::severity_level::info) )
+            boost::program_options::value<unsigned int>(&logLevel) )
          ( "LOGFILE",
             boost::program_options::value<std::filesystem::path>(&logFile) )
          ( "LOGCOLOR",
@@ -867,6 +948,7 @@ int main(int argc, char** argv)
             boost::program_options::parse_config_file(
                configurationInputStream , configFileOptions), configFileVariablesMap);
          boost::program_options::notify(configFileVariablesMap);
+         boost::program_options::notify(commandLineVariablesMap);
       } catch(const std::exception& e) {
          std::cerr << "ERROR: Parsing configuration file " << configFile
                   << " failed: " << e.what() << "\n";
@@ -920,7 +1002,7 @@ int main(int argc, char** argv)
    initialiseLogger(logLevel, logColor,
                     (logFile != std::filesystem::path()) ? logFile.string().c_str() : nullptr);
 
-   DMHS_LOG(info) << "Starting DynMHS " << DYNMHS_VERSION << " ...";
+   DMHS_LOG(info) << "Starting DynMHS " << PROJECT_VERSION << " ...";
    for(auto iterator = InterfaceMap.begin(); iterator != InterfaceMap.end(); iterator++) {
       DMHS_LOG(info) << "Mapping: " << iterator->first
                      << " -> table " << iterator->second;
@@ -971,6 +1053,7 @@ int main(int argc, char** argv)
    sigset_t mask;
    sigemptyset(&mask);
    sigaddset(&mask, SIGINT);
+   sigaddset(&mask, SIGTERM);
    if(sigprocmask(SIG_BLOCK, &mask, NULL) == -1) {
       perror("sigprocmask() call failed!");
    }
@@ -1000,7 +1083,7 @@ int main(int argc, char** argv)
             }
          }
 
-         // ------ Signal (SIGINT) ------------------------------------------
+         // ------ Signal (SIGINT/SIGTERM) ----------------------------------
          if(pfd[1].revents & POLLIN) {
             signalfd_siginfo fdsi;
             if(read(sfd, &fdsi, sizeof(fdsi))) {

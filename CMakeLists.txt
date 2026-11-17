@@ -28,15 +28,23 @@
 #
 # Contact: dreibh@simula.no
 
-CMAKE_MINIMUM_REQUIRED(VERSION 3.10)
-PROJECT(dynmhs LANGUAGES C CXX)
-
+CMAKE_MINIMUM_REQUIRED(VERSION 3.12)
 SET(BUILD_MAJOR "0")
 SET(BUILD_MINOR "3")
 SET(BUILD_PATCH "6")
-SET(BUILD_VERSION ${BUILD_MAJOR}.${BUILD_MINOR}.${BUILD_PATCH})
+STRING(REGEX MATCH "^[0-9]+(\\.[0-9]+)?(\\.[0-9]+)?(\\.[0-9]+)?" CMAKE_COMPAT_VERSION "${BUILD_MAJOR}.${BUILD_MINOR}.${BUILD_PATCH}")
+PROJECT(dynmhs
+        VERSION      "${CMAKE_COMPAT_VERSION}"
+        LANGUAGES    C CXX
+        HOMEPAGE_URL "https://www.nntb.no/~dreibh/dynmhs")
+SET(PROJECT_SOURCE_URL     "https://github.com/simula/dynmhs")
+SET(PROJECT_BUGTRACKER_URL "https://github.com/simula/dynmhs/issues")
+SET(PROJECT_COPYRIGHT      "Copyright (C) 2024-2026 by Thomas Dreibholz")
 
-SET(CMAKE_CXX_STANDARD 20)
+SET(CMAKE_CXX_STANDARD          20)
+SET(CMAKE_CXX_STANDARD_REQUIRED ON)
+SET(CMAKE_CXX_EXTENSIONS        OFF)
+
 
 
 #############################################################################
@@ -48,6 +56,7 @@ INCLUDE(CheckCSourceCompiles)
 INCLUDE(CheckCSourceRuns)
 INCLUDE(CheckIncludeFile)
 INCLUDE(CheckStructHasMember)
+INCLUDE(CheckSymbolExists)
 INCLUDE(GNUInstallDirs)
 
 
